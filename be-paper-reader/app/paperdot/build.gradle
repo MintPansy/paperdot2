@@ -1,0 +1,54 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.1'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'swyp'
+version = '0.0.1-SNAPSHOT'
+description = 'paperdot'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	compileOnly 'org.projectlombok:lombok'
+	runtimeOnly 'org.postgresql:postgresql'
+	implementation 'org.postgresql:postgresql'
+	implementation 'software.amazon.awssdk:s3:2.31.44'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.1'
+	// PDF 파일 처리를 위한 Apache PDFBox 라이브러리 추가
+	implementation 'org.apache.pdfbox:pdfbox:3.0.2'
+
+	//login
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	//jwt
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
+    implementation 'org.apache.pdfbox:pdfbox-tools:3.0.2' // PDFBox Loader 클래스 사용을 위한 tools 라이브러리 추가
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
