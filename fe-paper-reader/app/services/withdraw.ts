@@ -1,6 +1,8 @@
+import { getApiUrl } from "@/app/config/env";
+
 export const withdraw = async (socialType: string, accessToken: string) => {
   const response = await fetch(
-    `https://be-paper-dot.store/auth/withdraw/${socialType}`,
+    `${getApiUrl()}/auth/withdraw/${socialType}`,
     {
       method: "DELETE",
       headers: {

@@ -1,4 +1,5 @@
 import { EventSourcePolyfill } from "event-source-polyfill";
+import { getApiUrl } from "@/app/config/env";
 
 export const postDocuments = async (
   formData: FormData,
@@ -10,7 +11,7 @@ export const postDocuments = async (
       headers["Authorization"] = `Bearer ${accessToken}`;
     }
 
-    const response = await fetch("https://be-paper-dot.store/documents", {
+    const response = await fetch(`${getApiUrl()}/documents`, {
       method: "POST",
       headers,
       body: formData,
@@ -44,7 +45,7 @@ export const getTranslatedDocument = async (
   accessToken?: string
 ): Promise<TranslatedDocumentUnit[]> => {
   try {
-    const apiUrl = "https://be-paper-dot.store";
+    const apiUrl = getApiUrl();
     const headers: HeadersInit = {
       "Content-Type": "application/json",
     };
@@ -99,7 +100,7 @@ export const requestLLM = async (file: File, accessToken?: string) => {
     }
 
     const response = await fetch(
-      "https://be-paper-dot.store/api/llm/chat-pdf",
+      `${getApiUrl()}/api/llm/chat-pdf`,
       {
         method: "POST",
         headers,
@@ -154,7 +155,7 @@ export const getTranslationStatusPoll = async (
   documentId: string | number,
   accessToken?: string
 ): Promise<TranslationStatusPollResult> => {
-  const apiUrl = "https://be-paper-dot.store";
+  const apiUrl = getApiUrl();
   const headers: HeadersInit = {
     "Content-Type": "application/json",
   };
@@ -213,7 +214,7 @@ export const postTranslation = async (
     }
 
     const response = await fetch(
-      `https://be-paper-dot.store/api/v1/documents/${documentId}/process?overwrite=false`,
+      `${getApiUrl()}/api/v1/documents/${documentId}/process?overwrite=false`,
       {
         method: "POST",
         headers,

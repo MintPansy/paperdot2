@@ -4,6 +4,13 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import ReadHeader from "../../header/ReadHeader";
 import styles from "./readList.module.css";
 import { useClickOutSide } from "@/app/hooks/useClickOutSide";
+import { useAccessTokenStore } from "@/app/store/useLogin";
+import {
+  getNotes,
+  createNote,
+  type UserDocNoteItem,
+} from "@/app/api/document";
+
 interface TranslationPair {
   docUnitId: number;
   sourceText: string;
@@ -34,11 +41,36 @@ export default function ReadList() {
     return stored?.trim() ?? "";
   });
 
+  const documentIdRef = useRef<string | null>(null);
+  if (typeof window !== "undefined" && !documentIdRef.current) {
+    documentIdRef.current = sessionStorage.getItem("documentId");
+  }
+  const documentId = documentIdRef.current;
+
+  const accessToken = useAccessTokenStore((s) => s.accessToken);
+  const [notes, setNotes] = useState<UserDocNoteItem[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+
+  useEffect(() => {
+    if (!documentId || !accessToken) return;
+    setNotesLoading(true);
+    getNotes(documentId, accessToken)
+      .then(setNotes)
+      .catch(() => setNotes([]))
+      .finally(() => setNotesLoading(false));
+  }, [documentId, accessToken]);
+
+  const refetchNotes = useCallback(() => {
+    if (!documentId || !accessToken) return;
+    getNotes(documentId, accessToken).then(setNotes).catch(() => {});
+  }, [documentId, accessToken]);
+
   const [selectedPageIndex, setSelectedPageIndex] = useState(0);
   const [showSidebar, setShowSidebar] = useState(true);
   const [filterMode, setFilterMode] = useState<"all" | "korean" | "english">(
     "all"
   );
+  const [searchQuery, setSearchQuery] = useState("");
 
   // 파생 값: 7~8문장 단위로 페이지 묶음
   const dataToPage = useMemo(
@@ -60,10 +92,11 @@ export default function ReadList() {
   const contentScrollRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // 문장 선택 시 모달(팝오버) 상태
+  // 문장 선택 시 모달(팝오버) 상태 (선택된 문단의 docUnitId 포함)
   const [selectionModal, setSelectionModal] = useState<{
     text: string;
     rect: DOMRect;
+    docUnitId: number;
   } | null>(null);
   const selectionModalRef = useRef<HTMLDivElement>(null);
   const selectionModalTextRef = useRef<string | null>(null);
@@ -81,6 +114,39 @@ export default function ReadList() {
       setSelectionModal(null);
     }
   }, []);
+
+  const handleSaveHighlight = useCallback(() => {
+    const text = selectionModalTextRef.current;
+    const docUnitId = selectionModal?.docUnitId;
+    if (!documentId || !accessToken || !text || docUnitId == null) return;
+    createNote(
+      documentId,
+      { docUnitId, noteType: "HIGHLIGHT", content: text, color: "#fff59d" },
+      accessToken
+    )
+      .then(() => {
+        refetchNotes();
+        setSelectionModal(null);
+      })
+      .catch(() => {});
+  }, [documentId, accessToken, refetchNotes, selectionModal?.docUnitId]);
+
+  const handleSaveMemo = useCallback(() => {
+    const docUnitId = selectionModal?.docUnitId;
+    if (!documentId || !accessToken || docUnitId == null) return;
+    const content = window.prompt("메모 내용을 입력하세요.");
+    if (content == null) return;
+    createNote(
+      documentId,
+      { docUnitId, noteType: "MEMO", content: content.trim() || null },
+      accessToken
+    )
+      .then(() => {
+        refetchNotes();
+        setSelectionModal(null);
+      })
+      .catch(() => {});
+  }, [documentId, accessToken, refetchNotes, selectionModal?.docUnitId]);
 
   // 본문 영역에서 텍스트 선택 시 모달 표시
   useEffect(() => {
@@ -100,7 +166,15 @@ export default function ReadList() {
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       if (rect.width > 0 || rect.height > 0) {
-        setSelectionModal({ text, rect });
+        let docUnitId = 0;
+        for (let i = 0; i < itemRefs.current.length; i++) {
+          const ref = itemRefs.current[i];
+          if (ref && range.intersectsNode(ref)) {
+            docUnitId = data[i]?.docUnitId ?? 0;
+            break;
+          }
+        }
+        setSelectionModal({ text, rect, docUnitId });
       }
     };
 
@@ -117,7 +191,7 @@ export default function ReadList() {
       contentEl.removeEventListener("mouseup", onMouseUp);
       document.removeEventListener("selectionchange", onSelectionChange);
     };
-  }, []);
+  }, [data]);
 
   // 모달 외부 클릭 시 닫기
   useClickOutSide(
@@ -231,6 +305,36 @@ export default function ReadList() {
   const handleFilterChange = (mode: "all" | "korean" | "english") =>
     setFilterMode(mode);
 
+  const notesByDocUnitId = useMemo(() => {
+    const m = new Map<number, UserDocNoteItem[]>();
+    notes.forEach((n) => {
+      const list = m.get(n.docUnitId) ?? [];
+      list.push(n);
+      m.set(n.docUnitId, list);
+    });
+    return m;
+  }, [notes]);
+
+  /** 검색어가 포함된 텍스트를 하이라이트된 React 노드로 반환 (캡처 그룹 사용 시 홀수 인덱스가 매치) */
+  const highlightMatches = useCallback(
+    (text: string, query: string): React.ReactNode => {
+      if (!query.trim()) return text;
+      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`(${escaped})`, "gi");
+      const parts = text.split(re);
+      return parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <mark key={i} className={styles.highlight}>
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      );
+    },
+    []
+  );
+
   // ─── 렌더링 ───
   return (
     <main className={styles.container}>
@@ -243,6 +347,16 @@ export default function ReadList() {
         filterMode={filterMode}
         onFilterChange={handleFilterChange}
       />
+      <div className={styles.searchBarWrap}>
+        <input
+          type="search"
+          className={styles.searchBar}
+          placeholder="번역문에서 검색..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          aria-label="번역문 검색"
+        />
+      </div>
       <div className={styles.content}>
         {showSidebar && (
           <aside className={styles.sidebar}>
@@ -304,26 +418,53 @@ export default function ReadList() {
           role="region"
           aria-label="문서 본문"
           style={showSidebar ? {} : { width: "100%" }}>
-          {data.map((item, index) => (
+          {data.map((item, index) => {
+            const unitNotes = notesByDocUnitId.get(item.docUnitId) ?? [];
+            const hasHighlight = unitNotes.some((n) => n.noteType === "HIGHLIGHT");
+            const memos = unitNotes.filter((n) => n.noteType === "MEMO");
+            return (
             <div
               key={item.docUnitId}
               ref={(el) => {
                 itemRefs.current[index] = el;
-              }}>
+              }}
+              className={hasHighlight ? styles.hasSavedHighlight : undefined}>
+              {memos.length > 0 && (
+                <div className={styles.memoBadge} title={memos.map((m) => m.content ?? "").join("\n")}>
+                  📝 {memos.length}
+                </div>
+              )}
               {filterMode === "all" && (
                 <>
-                  <p className={styles.sourceText}>{item.sourceText}</p>
-                  <p className={styles.translatedText}>{item.translatedText}</p>
+                  <p className={styles.sourceText}>
+                    {searchQuery.trim()
+                      ? highlightMatches(item.sourceText, searchQuery)
+                      : item.sourceText}
+                  </p>
+                  <p className={styles.translatedText}>
+                    {searchQuery.trim()
+                      ? highlightMatches(item.translatedText, searchQuery)
+                      : item.translatedText}
+                  </p>
                 </>
               )}
               {filterMode === "english" && (
-                <p className={styles.sourceText}>{item.sourceText}</p>
+                <p className={styles.sourceText}>
+                  {searchQuery.trim()
+                    ? highlightMatches(item.sourceText, searchQuery)
+                    : item.sourceText}
+                </p>
               )}
               {filterMode === "korean" && (
-                <p className={styles.translatedText}>{item.translatedText}</p>
+                <p className={styles.translatedText}>
+                  {searchQuery.trim()
+                    ? highlightMatches(item.translatedText, searchQuery)
+                    : item.translatedText}
+                </p>
               )}
             </div>
-          ))}
+          );
+          })}
         </div>
       </div>
 
@@ -349,6 +490,20 @@ export default function ReadList() {
               : selectionModal.text}
           </p>
           <div className={styles.selectionModalActions}>
+            <button
+              type="button"
+              className={styles.selectionModalBtn}
+              onClick={handleSaveHighlight}
+              title="선택 영역을 하이라이트로 저장">
+              하이라이트
+            </button>
+            <button
+              type="button"
+              className={styles.selectionModalBtn}
+              onClick={handleSaveMemo}
+              title="이 문단에 메모 추가">
+              메모
+            </button>
             <button
               type="button"
               className={styles.selectionModalBtn}

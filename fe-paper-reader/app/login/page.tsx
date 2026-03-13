@@ -4,14 +4,15 @@ import React from "react";
 import Image from "next/image";
 import styles from "./login.module.css";
 import Link from "next/link";
+import { getApiUrl } from "@/app/config/env";
 
 export default function LoginPage() {
   const handleKakaoLogin = () => {
-    window.location.href = `https://be-paper-dot.store/oauth2/authorization/kakao`;
+    window.location.href = `${getApiUrl()}/oauth2/authorization/kakao`;
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `https://be-paper-dot.store/oauth2/authorization/google`;
+    window.location.href = `${getApiUrl()}/oauth2/authorization/google`;
   };
 
   return (

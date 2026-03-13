@@ -5,6 +5,7 @@ import HeaderModal from "../../modal/HeaderModal";
 import Link from "next/link";
 import styles from "../../modal/headerModal.module.css";
 import { useAccessTokenStore, useLoginStore } from "@/app/store/useLogin";
+import { getApiUrl } from "@/app/config/env";
 
 export default function IsLogin() {
   const [isLogin, setIsLogin] = useState<{ accessToken: string } | null>(null);
@@ -13,7 +14,7 @@ export default function IsLogin() {
 
   useEffect(() => {
     const fetchUserInfo = async () => {
-      const response = await fetch("https://be-paper-dot.store/auth/token", {
+      const response = await fetch(`${getApiUrl()}/auth/token`, {
         method: "POST",
         credentials: "include",
       });
@@ -27,7 +28,7 @@ export default function IsLogin() {
   useEffect(() => {
     if (isLogin?.accessToken) {
       const fetchUserInfo = async () => {
-        const response = await fetch("https://be-paper-dot.store/users/me", {
+        const response = await fetch(`${getApiUrl()}/users/me`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${isLogin?.accessToken as string}`,

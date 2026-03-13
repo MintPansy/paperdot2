@@ -1,10 +1,11 @@
 /**
  * 문서 관련 API 모듈
- * 백엔드 Swagger 문서: https://be-paper-dot.store/swagger-ui/index.html
+ * 백엔드 Swagger: getApiUrl() + /swagger-ui/index.html
  */
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "https://be-paper-dot.store";
+import { getApiUrl } from "@/app/config/env";
+
+const API_BASE_URL = getApiUrl();
 
 /**
  * API 에러 타입
@@ -264,4 +265,72 @@ export async function getDocumentList(
     }
   );
   return handleResponse<DocumentListItem[]>(response);
+}
+
+// ==================== 메모/하이라이트 API ====================
+
+export type NoteType = "HIGHLIGHT" | "MEMO";
+
+export interface UserDocNoteItem {
+  id: number;
+  docUnitId: number;
+  noteType: NoteType;
+  content: string | null;
+  color: string | null;
+  createdAt: string;
+}
+
+export interface CreateNoteRequest {
+  docUnitId: number;
+  noteType: NoteType;
+  content?: string | null;
+  color?: string | null;
+}
+
+export async function getNotes(
+  documentId: number | string,
+  accessToken?: string
+): Promise<UserDocNoteItem[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/documents/${documentId}/notes`,
+    {
+      method: "GET",
+      headers: getAuthHeaders(accessToken),
+      credentials: "include",
+    }
+  );
+  return handleResponse<UserDocNoteItem[]>(response);
+}
+
+export async function createNote(
+  documentId: number | string,
+  body: CreateNoteRequest,
+  accessToken?: string
+): Promise<UserDocNoteItem> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/documents/${documentId}/notes`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(accessToken),
+      credentials: "include",
+      body: JSON.stringify(body),
+    }
+  );
+  return handleResponse<UserDocNoteItem>(response);
+}
+
+export async function deleteNote(
+  documentId: number | string,
+  noteId: number,
+  accessToken?: string
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/documents/${documentId}/notes/${noteId}`,
+    {
+      method: "DELETE",
+      headers: getAuthHeaders(accessToken),
+      credentials: "include",
+    }
+  );
+  if (response.status !== 204) await handleResponse<unknown>(response);
 }

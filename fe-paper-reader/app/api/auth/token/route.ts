@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getApiUrl } from "@/app/config/env";
 
-const BACKEND_URL = "https://be-paper-dot.store";
+const BACKEND_URL = getApiUrl();
 
 export async function POST() {
   try {
