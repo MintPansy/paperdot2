@@ -73,3 +73,20 @@
 - 루트 [README.md](../README.md) — 프로젝트 개요, 기술 스택, 개발 추천 아이디어 5가지
 - [fe-paper-reader/README.md](../fe-paper-reader/README.md) — 기여 내용·트러블슈팅 (논문 "구현" 참고)
 - [SETUP.md](SETUP.md) — 실행 방법
+
+---
+
+## 6. 개발 일지
+
+### 2025-03-17 (FE 홈·푸터 정리)
+
+- **홈 화면 가운데 정렬**
+  - Hero, 핵심 기능 카드, 데모 섹션, CTA가 왼쪽으로 쏠리던 문제 해결.
+  - 원인: `globals.css` 리셋의 `section { display: block }`가 Tailwind `flex`를 덮어씀.
+  - 조치: 리셋에서 `section` 제외, `.home-page section`에 `display: flex !important`, `flex-direction: column`, `align-items: center` 적용. 각 섹션에 `flex flex-col items-center` 유지.
+  - `layout.tsx`에서 body의 flex/추가 wrapper 제거해 블록 흐름 복원, `mx-auto`가 동작하도록 정리.
+- **푸터**
+  - 로고를 `newlogo3.png`로 변경.
+  - 로고 크기 350×150px로 고정, CSS와 Image `width`/`height`·`sizes="350px"` 통일로 리사이즈 시 레이아웃 시프트 방지.
+- **문서**
+  - 논문 md에 당일 작업 내용 반영 (본 개발 일지).
