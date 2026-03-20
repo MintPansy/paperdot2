@@ -62,9 +62,16 @@
 
 - `docs/THESIS_CONTRIBUTIONS.md` — 논문 "기여" 문단 초안 (기능별 1~2문단)
 - `docs/THESIS_EXPERIMENTS.md` — 실험 설계·결과 메모 (표·수치)
+- `docs/THESIS_LIMITATIONS.md` — **기존 시스템 한계(ERR_CONNECTION_TIMED_OUT 등) + 가용성·배포 개선** 문단 및 실질 글감, 코드/API 가이드
 - `docs/ARCHITECTURE.md` — 시스템 구성도, API 요약, DB 개요
 
 필요 시 위 파일들을 만들어 두고 개발하면서 조금씩 채우면 논문 집필 시 바로 옮겨 쓸 수 있습니다.
+
+### 가용성·배포 개선 (논문 반영용)
+
+- **기존 한계**: 이전 배포 사이트 `ERR_CONNECTION_TIMED_OUT` → 도메인/서버 관리 부재로 서비스 중단.
+- **개선 방향**: 호스팅·배포 전략(Vercel + GitHub), 도메인/SSL, 헬스 체크·모니터링, 에러 처리 UX(안내 메시지·재시도).
+- **문단·구현 가이드**: `docs/THESIS_LIMITATIONS.md`에 논문용 문단 예시와, 헬스 API·모니터링·FE 에러 UX를 위한 코드·API 가져오는 방법을 정리해 두었음.
 
 ---
 

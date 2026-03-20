@@ -1,38 +1,75 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import styles from "./login.module.css";
 import Link from "next/link";
 import { getApiUrl } from "@/app/config/env";
+import { toast } from "react-toastify";
 
 export default function LoginPage() {
+  const [redirecting, setRedirecting] = useState<"google" | "kakao" | null>(null);
+
+  const handleGoogleLogin = () => {
+    setRedirecting("google");
+    window.location.href = `${getApiUrl()}/oauth2/authorization/google`;
+  };
+
   const handleKakaoLogin = () => {
+    setRedirecting("kakao");
     window.location.href = `${getApiUrl()}/oauth2/authorization/kakao`;
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href = `${getApiUrl()}/oauth2/authorization/google`;
-  };
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error")) {
+      toast.error("로그인에 실패했습니다. 다시 시도해 주세요.");
+    }
+  }, []);
 
   return (
     <div className={styles.container}>
       <div className={styles.content}>
         <Image
           src="/newlogo.png"
-          alt="PaperDot"
+          alt="ScholarDot"
           width={420}
           height={148}
           className={styles.logo}
         />
         <div className={styles.buttonContainer}>
-          <button onClick={handleGoogleLogin} className={styles.googleButton}>
-            <Image src="/googleLogo.svg" alt="Google" width={20} height={20} />
-            구글로 시작하기
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            className={styles.googleButton}
+            disabled={!!redirecting}
+            aria-label="구글로 로그인"
+          >
+            {redirecting === "google" ? (
+              <span className={styles.buttonLoading}>이동 중...</span>
+            ) : (
+              <>
+                <Image src="/googleLogo.svg" alt="" width={20} height={20} aria-hidden />
+                구글로 시작하기
+              </>
+            )}
           </button>
-          <button onClick={handleKakaoLogin} className={styles.kakaoButton}>
-            <Image src="/kakaoLogo.svg" alt="Kakao" width={20} height={20} />
-            카카오로 시작하기
+          <button
+            type="button"
+            onClick={handleKakaoLogin}
+            className={styles.kakaoButton}
+            disabled={!!redirecting}
+            aria-label="카카오로 로그인"
+          >
+            {redirecting === "kakao" ? (
+              <span className={styles.buttonLoading}>이동 중...</span>
+            ) : (
+              <>
+                <Image src="/kakaoLogo.svg" alt="" width={20} height={20} aria-hidden />
+                카카오로 시작하기
+              </>
+            )}
           </button>
         </div>
         <div className={styles.termsContainer}>

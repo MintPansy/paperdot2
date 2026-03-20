@@ -62,6 +62,16 @@
   cursor: pointer;
 }
 
+.kakaoButton:disabled,
+.googleButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.buttonLoading {
+  display: inline-block;
+}
+
 .termsContainer {
   padding-top: 20px;
 }

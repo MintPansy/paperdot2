@@ -30,6 +30,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <ToastContainer position="top-center" autoClose={4000} />
       {(showHeaderFooter || showHeaderOnly) && <Header />}
       {isMypage ? (
         <div style={{ display: "flex", width: "100%", height: "100vh" }}>

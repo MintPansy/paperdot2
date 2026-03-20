@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import swyp.paperdot.document.domain.DocumentFile;
 import swyp.paperdot.document.enums.DocumentFileType;
+import swyp.paperdot.document.enums.StorageProvider;
 import swyp.paperdot.document.exception.StorageUploadException;
 import swyp.paperdot.document.storage.ObjectStorageClient;
 
@@ -71,7 +72,12 @@ public class DocumentFileService {
     }
 
     private String buildStoragePath(String bucket, String key) {
-        return "ncloud://" + bucket + "/" + key;
+        StorageProvider provider = objectStorageClient.getProvider();
+        return switch (provider) {
+            case S3 -> "s3://" + bucket + "/" + key;
+            case LOCAL -> "local://" + bucket + "/" + key;
+            case NCLOUD -> "ncloud://" + bucket + "/" + key;
+        };
     }
 
     private String normalizeFilename(String originalFilename) {

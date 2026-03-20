@@ -9,7 +9,7 @@ import swyp.paperdot.document.exception.DocumentNotFoundException;
 import swyp.paperdot.document.exception.InvalidStoragePathException;
 import swyp.paperdot.document.exception.StorageDownloadException;
 import swyp.paperdot.document.repository.DocumentFileRepository;
-import swyp.paperdot.document.storage.NcpStoragePathParser;
+import swyp.paperdot.document.storage.StoragePathParser;
 import swyp.paperdot.document.storage.ObjectStorageClient;
 
 import java.io.InputStream;
@@ -23,7 +23,7 @@ public class DocumentDownloadService {
 
     private final DocumentFileRepository documentFileRepository;
     private final ObjectStorageClient objectStorageClient;
-    private final NcpStoragePathParser storagePathParser;
+    private final StoragePathParser storagePathParser;
 
     /**
      * 특정 문서의 원본 PDF 파일을 스토리지에서 다운로드하여 InputStream으로 반환합니다.
@@ -43,7 +43,7 @@ public class DocumentDownloadService {
                 .orElseThrow(() -> new DocumentNotFoundException("Original PDF file not found for documentId: " + documentId));
 
         // 2. storagePath에서 objectKey 파싱
-        // 새로 추가한 NcpStoragePathParser를 사용하여 DB에 저장된 경로에서 실제 객체 키를 추출합니다.
+        // DB에 저장된 storagePath 문자열에서 실제 objectKey를 추출합니다.
         String storagePath = documentFile.getStoragePath();
         String objectKey = storagePathParser.getObjectKey(storagePath);
 

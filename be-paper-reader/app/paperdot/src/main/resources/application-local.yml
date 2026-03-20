@@ -35,13 +35,10 @@ openai:
 # 시스템 메시지 설정
 openai.api.system-message: '당신은 문서 요약을 전문으로 하는 유용한 어시스턴트입니다.  '
 
-ncp:
-  storage:
-    region: ${NCP_REGION}
-    endpoint: https://kr.object.ncloudstorage.com
-    accessKey: ${NCP_ACCESS_KEY}
-    secretKey: ${NCP_SECRET_KEY}
-    bucket: ${NCP_BUCKET}
+# Object Storage
+# - AWS 자격증명이 있으면 AWS S3 사용
+# - 없으면 로컬 폴더(storage/local)로 fallback
+# (ObjectStorageClientConfig에서 env var를 직접 읽음)
 
 translation:
   batch-size: 30

@@ -2,5 +2,6 @@ package swyp.paperdot.document.enums;
 
 public enum StorageProvider {
     NCLOUD,
-    S3
+    S3,
+    LOCAL
 }
