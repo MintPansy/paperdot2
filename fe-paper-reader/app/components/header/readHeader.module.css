@@ -72,16 +72,16 @@
   display: flex;
   align-items: baseline;
   gap: 4px;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-weight: 400;
   line-height: 150%;
   letter-spacing: -0.28px;
-  color: #737a82;
+  color: #9ca3af; /* low-contrast meta */
   flex-shrink: 0;
 }
 
 .readHeaderPageNumberCurrent {
-  color: #21232a;
+  color: #6b7280;
   font-weight: 600;
   width: 20px;
   text-align: center;
@@ -95,7 +95,7 @@
 }
 
 .readHeaderPageNumberTotal {
-  color: #21232a;
+  color: #6b7280;
   font-weight: 500;
   min-width: 1ch;
 }
@@ -107,10 +107,11 @@
 }
 
 .readHeaderFileName {
-  color: #474952;
-  font-size: 1rem;
-  line-height: 150%;
-  letter-spacing: -0.32px;
+  color: #0f172a; /* high contrast */
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   flex: 1;
   text-align: center;
   overflow: hidden;
@@ -120,6 +121,34 @@
   left: 50%;
   transform: translateX(-50%);
   max-width: 300px;
+}
+
+@media (max-width: 640px) {
+  .readHeaderFileName {
+    font-size: 1.6rem;
+    max-width: 220px;
+  }
+}
+
+/* ==================== Dark mode (contrast 유지) ==================== */
+@media (prefers-color-scheme: dark) {
+  .header {
+    border-bottom-color: rgba(148, 163, 184, 0.35);
+  }
+
+  .readHeaderPageNumber {
+    color: #9ca3af;
+  }
+
+  .readHeaderPageNumberCurrent {
+    color: #e5e7eb;
+    border-color: rgba(148, 163, 184, 0.35);
+    background: rgba(15, 23, 42, 0.3);
+  }
+
+  .readHeaderFileName {
+    color: #e5e7eb;
+  }
 }
 
 .readHeaderFileNameContainer {

@@ -50,19 +50,21 @@
   border-radius: 8px;
   background: #ffffff;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
   overflow: hidden;
   height: 140px;
   aspect-ratio: 27/35;
 }
 
 .pageCard:hover {
-  border-color: rgba(30, 58, 138, 0.4);
+  border-color: rgba(37, 99, 235, 0.65); /* primary blue */
+  transform: scale(1.04);
+  box-shadow: 0 10px 24px rgba(30, 58, 138, 0.16);
 }
 
 .pageCardSelected {
   border-color: var(--pd-navy, #1e3a8a);
-  box-shadow: 0 0 0 1px var(--pd-navy, #1e3a8a);
+  box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.35);
 }
 
 .pagePreview {
@@ -127,7 +129,7 @@
 
 .pagePreviewTextSourceText,
 .pagePreviewTextText {
-  font-size: 7px;
+  font-size: 0.78rem; /* ~12.5px: small, but readable */
   font-weight: 400;
   line-height: 1.4;
   min-height: 0;
@@ -138,20 +140,21 @@
 }
 
 .pagePreviewTextSourceText {
-  color: #374151;
+  color: #111827; /* stronger contrast */
 }
 
 .pagePreviewTextText {
-  color: #6b7280;
+  color: #6b7280; /* weak gray */
 }
 
 .pageNumber {
   position: absolute;
   bottom: -18%;
-  font-size: 13px;
+  font-size: 0.9rem;
   font-weight: 400;
   line-height: 150%;
   letter-spacing: -0.26px;
+  color: #9ca3af; /* low-contrast meta */
 }
 
 .pageListItem {
@@ -216,11 +219,11 @@
 }
 
 .sourceText {
-  color: #21232a;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 150%;
-  letter-spacing: -0.32px;
+  color: var(--pd-navy, #1e3a8a);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
 }
 
 .sourceText::selection,
@@ -230,12 +233,12 @@
 }
 
 .translatedText {
-  color: #4b4d55;
-  font-size: 16px;
-  font-weight: 400;
-  line-height: 150%;
-  letter-spacing: -0.32px;
-  text-transform: capitalize;
+  color: #6b7280; /* secondary text */
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  text-transform: none;
 }
 
 /* 텍스트 선택 시 팝오버 모달 */
@@ -253,9 +256,9 @@
 
 .selectionModalText {
   margin: 0 0 12px;
-  font-size: 14px;
+  font-size: 0.9rem;
   line-height: 1.5;
-  color: #374151;
+  color: #6b7280;
   word-break: break-word;
   max-height: 120px;
   overflow-y: auto;
@@ -288,6 +291,7 @@
   background-color: rgba(255, 235, 59, 0.55);
   padding: 0 2px;
   border-radius: 2px;
+  border: 1px solid rgba(30, 58, 138, 0.12);
 }
 
 /* 검색 바 */
@@ -301,7 +305,7 @@
   width: 100%;
   max-width: 360px;
   padding: 10px 14px 10px 36px;
-  font-size: 14px;
+  font-size: 1rem;
   line-height: 1.4;
   border: 1px solid #d4dbe8;
   border-radius: 8px;
@@ -322,7 +326,7 @@
 /* 저장된 하이라이트가 있는 문단 */
 .hasSavedHighlight {
   background-color: rgba(255, 235, 59, 0.15);
-  border-left: 3px solid rgba(255, 193, 7, 0.8);
+  border-left: 4px solid rgba(37, 99, 235, 0.8); /* emphasize with primary */
   padding-left: 8px;
   margin-left: -8px;
   border-radius: 0 4px 4px 0;
@@ -333,7 +337,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 0.85rem;
   color: #6b7280;
   margin-bottom: 4px;
   padding: 2px 8px;
@@ -341,4 +345,89 @@
   border-radius: 6px;
   width: fit-content;
   cursor: default;
+}
+
+/* ==================== Responsive ==================== */
+@media (max-width: 640px) {
+  .sidebar {
+    width: 170px;
+    padding-inline: 8px;
+  }
+
+  .docUnitId {
+    width: calc(100% - 170px);
+    padding-inline: 20px;
+    gap: 28px;
+  }
+
+  .sourceText {
+    font-size: 1.2rem; /* 1.1~1.2x */
+  }
+
+  .translatedText {
+    font-size: 1.05rem;
+  }
+
+  .pageCard {
+    height: 120px;
+  }
+
+  .searchBarWrap {
+    padding: 12px 20px 0;
+  }
+}
+
+/* ==================== Dark mode (contrast 유지) ==================== */
+@media (prefers-color-scheme: dark) {
+  .container {
+    background: #0b1220;
+  }
+
+  .sidebar {
+    background: #0f172a;
+  }
+
+  .pagePreviewText {
+    background: #0b1220;
+  }
+
+  .pagePreviewTextSourceText {
+    color: #e5e7eb;
+  }
+
+  .pagePreviewTextText {
+    color: #9ca3af;
+  }
+
+  .sourceText {
+    color: #93c5fd;
+  }
+
+  .translatedText {
+    color: #9ca3af;
+  }
+
+  .searchBar {
+    background: #0b1220;
+    border-color: rgba(148, 163, 184, 0.35);
+    color: #e5e7eb;
+  }
+
+  .searchBar::placeholder {
+    color: #9ca3af;
+  }
+
+  .selectionModal {
+    background: #0b1220;
+    border-color: rgba(148, 163, 184, 0.35);
+  }
+
+  .selectionModalText {
+    color: #cbd5e1;
+  }
+
+  .highlight {
+    background-color: rgba(59, 130, 246, 0.25);
+    border-color: rgba(147, 197, 253, 0.35);
+  }
 }

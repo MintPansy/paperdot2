@@ -97,3 +97,34 @@
   - 로고 크기 350×150px로 고정, CSS와 Image `width`/`height`·`sizes="350px"` 통일로 리사이즈 시 레이아웃 시프트 방지.
 - **문서**
   - 논문 md에 당일 작업 내용 반영 (본 개발 일지).
+
+### 2026-03-20 (백엔드 스토리지 S3 마이그레이션 + 로그인 UX 개선)
+
+- **스토리지 마이그레이션 (NCP → AWS S3 + 로컬 fallback)**
+  - `ObjectStorageClient` 인터페이스 유지한 채, 내부 구현을 S3로 교체.
+  - AWS 환경변수(`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET`)가 없으면 `LOCAL_STORAGE_ROOT` 아래 로컬 폴더로 저장/다운로드하도록 fallback 구현.
+  - 기존 `storagePath` 문자열 형식에 대해 objectKey를 추출하는 `StoragePathParser`를 일반화(`ncloud://`, `s3://`, `local://`, 프로토콜 없는 형태 모두 지원).
+- **AWS SDK v3 최신화**
+  - `software.amazon.awssdk:s3` 버전을 `2.42.15`로 업그레이드.
+- **업로드/다운로드 경로 유지**
+  - 업로드/다운로드 비즈니스 로직(`DocumentFileService`, `DocumentDownloadService`)의 호출 흐름은 유지하고, 스토리지 구현/경로 파싱만 교체.
+- **로그인 기능 개선 (FE-only)**
+  - 로그인 페이지 소셜(OAuth) 버튼에 로딩/중복 클릭 방지 UX 추가.
+  - `IsLogin`에서 `/auth/token`, `/users/me` 호출 실패 시 토스트 안내 + 로그인 상태 초기화로 사용자 경험 개선.
+- **논문 문서 반영**
+  - `docs/THESIS_LIMITATIONS.md` 및 `docs/THESIS_DEV.md`에 위 변경사항과 “가용성/장애 대응 관점”의 정리를 추가.
+
+### 2026-03-20 (추가: FE 홈/사이드바 중앙정렬 + UI 데모/로컬 기동)
+
+- **홈 화면 UI 안정화 (FE)**
+  - `app/page.tsx`에서 Tailwind 유틸 의존을 제거하고, 전면 CSS 모듈(`page.module.css`)로 재구성해 가운데 정렬(무게중심) 흔들림을 줄임.
+  - Hero(중앙 집중) + Preview(독립 카드) + Features/Demo/CTA의 정렬 축을 CSS에서 일관되게 고정.
+- **마이페이지 사이드바 아이콘 찌그러짐 방지 (FE)**
+  - 사이드바 폭(`%`) 기반 레이아웃 변동을 줄이기 위해 고정 폭으로 변경하고, 아이콘 이미지 비율 유지를 위해 `object-fit: contain` 적용.
+- **읽기 화면 CSS 가독성/대비 조정 (FE)**
+  - `readHeader.module.css`, `readList.module.css`에서 폰트 크기/색/호버/선택 UI를 조정해 읽기 경험을 개선.
+- **로그인 데모 우회(“UI만” 목적, FE-only)**
+  - `app/login/page.tsx`의 Google 버튼을 OAuth 대신 “데모 유저처럼” 동작하도록 변경해 `/read` 진입을 UI 테스트 단계에서 가능하게 함.
+- **백엔드 로컬 기동/빌드 오류 해결 (BE/DevOps)**
+  - Docker 빌드 실패 원인(컴파일 에러) 수정: `ObjectStorageClientConfig`, `UserDocNoteService`의 문제를 최소 수정으로 해결.
+  - 런타임/부팅 실패 원인인 필수 env 미설정(`JWT_SECRET`, OAuth 필수 값들)을 로컬용 더미 값으로 채워 서버가 기동되도록 처리.

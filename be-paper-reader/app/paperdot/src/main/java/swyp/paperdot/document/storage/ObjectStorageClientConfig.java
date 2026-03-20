@@ -63,7 +63,9 @@ public class ObjectStorageClientConfig {
                         )
                         .build();
 
-        S3Client.Builder builder = S3Client.builder()
+        // AWS SDK v2의 builder 타입을 명시하면 버전별로 컴파일이 깨질 수 있어,
+        // 타입 추론(`var`)으로 안정적으로 처리합니다.
+        var builder = S3Client.builder()
                 .region(Region.of(region))
                 .credentialsProvider(
                         StaticCredentialsProvider.create(

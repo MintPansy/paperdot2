@@ -4,15 +4,28 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import styles from "./login.module.css";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getApiUrl } from "@/app/config/env";
 import { toast } from "react-toastify";
+import { useLoginStore } from "@/app/store/useLogin";
 
 export default function LoginPage() {
   const [redirecting, setRedirecting] = useState<"google" | "kakao" | null>(null);
+  const router = useRouter();
+  const setLogin = useLoginStore((s) => s.setLogin);
+  const setUserInfoState = useLoginStore((s) => s.setUserInfo);
 
   const handleGoogleLogin = () => {
+    // UI 데모만 필요할 때: 백엔드 OAuth를 타지 않고 화면만 데모 유저처럼 진입
     setRedirecting("google");
-    window.location.href = `${getApiUrl()}/oauth2/authorization/google`;
+    setLogin(true);
+    setUserInfoState({
+      userId: "demo-user",
+      profileImageUrl: "/userImage.svg",
+      nickname: "데모유저",
+      email: "demo@example.com",
+    });
+    router.push("/read");
   };
 
   const handleKakaoLogin = () => {

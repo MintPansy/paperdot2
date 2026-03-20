@@ -17,7 +17,7 @@ public class UserDocNoteService {
     private final UserDocNoteRepository userDocNoteRepository;
     private final DocumentRepository documentRepository;
 
-    private static void ensureDocumentOwner(Long documentId, Long userId) {
+    private void ensureDocumentOwner(Long documentId, Long userId) {
         documentRepository.findById(documentId)
                 .filter(d -> d.getOwnerId().equals(userId))
                 .orElseThrow(() -> new IllegalArgumentException("Document not found or access denied"));
