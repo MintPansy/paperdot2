@@ -23,7 +23,7 @@ export default function Footer() {
         <div className={styles.contentSection}>
           <div className={styles.linkGroup}>
             <Link
-              href="https://www.notion.so/2f4eb2f40de7802f8539e4762234b41d?source=copy_link"
+              href="https://www.notion.so/ScholarDot-32d844e3f946802eb7b5dd734df178f6?source=copy_link"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.link}
@@ -32,7 +32,7 @@ export default function Footer() {
             </Link>
             <span className={styles.divider}>|</span>
             <Link
-              href="https://www.notion.so/2fbeb2f40de780c5b996fc19312ca446?source=copy_link"
+              href="https://www.notion.so/ScholarDot-32d844e3f94680faa215c1bcae9c889b?source=copy_link"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.link}

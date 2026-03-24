@@ -3,24 +3,41 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { Noto_Sans_KR } from "next/font/google";
 import { useLoginStore } from "@/app/store/useLogin";
 import styles from "./page.module.css";
+
+const notoSansKr = Noto_Sans_KR({
+  subsets: ["latin"],
+  weight: ["700", "800", "900"],
+  display: "swap",
+});
 
 const features = [
   {
     icon: "📖",
     title: "문장 단위 병렬 읽기",
-    desc: "원문과 번역을 한 줄에서 함께 비교하며 읽을 수 있어, 논문 흐름을 끊지 않고 이해할 수 있습니다.",
+    desc: "원문과 번역을 문장 단위로 나란히 보여줘, 맥락을 유지한 채 읽을 수 있습니다.",
   },
   {
     icon: "⚡",
     title: "빠른 PDF 페이지 이동",
-    desc: "사이드바 썸네일과 페이지 번호를 통해 원하는 위치로 바로 이동할 수 있습니다.",
+    desc: "썸네일·페이지 번호로 원하는 위치를 바로 찾아가 시간을 줄입니다.",
   },
   {
     icon: "🗂️",
     title: "이어 읽기와 문서 관리",
-    desc: "최근 문서와 마지막 읽은 위치를 자동 저장해, 언제든 자연스럽게 이어서 읽을 수 있습니다.",
+    desc: "최근 문서와 마지막 읽은 위치를 저장해 끊김 없이 이어 읽을 수 있습니다.",
+  },
+  {
+    icon: "📈",
+    title: "학습 트래킹",
+    desc: "읽은 문장 수, 집중 시간, 난이도별 통계를 통해 학습 흐름을 점검할 수 있습니다.",
+  },
+  {
+    icon: "🧠",
+    title: "문장 복습 큐",
+    desc: "밑줄·하이라이트한 문장만 모아 빠르게 복습하고 핵심 문장에 재집중합니다.",
   },
 ];
 
@@ -39,18 +56,22 @@ export default function Home() {
 
         <div className={styles.heroInner}>
           <div className={styles.heroPill}>
-            PDF 논문 리더 · ScholarDot
+            <Image
+              src="/minilogo.png"
+              alt="ScholarDot 로고"
+              width={20}
+              height={20}
+              className={styles.heroPillLogo}
+            />
+            ScholarDot
           </div>
 
-          <h1 className={styles.heroTitle}>
-            영어 논문을
-            <br />
-            노트 읽듯 편하게
+          <h1 className={`${styles.heroTitle} ${notoSansKr.className}`}>
+            영어 논문을 연구 노트처럼 읽는 ScholarDot
           </h1>
 
           <p className={styles.heroDesc}>
-            문장 단위로 원문과 번역을 나란히 보고,
-            하이라이트와 메모를 남기며 더 자연스럽게 논문을 읽을 수 있습니다.
+            문장 단위 병렬 읽기, 중요한 부분만 모아서 복습하세요
           </p>
 
           <div className={styles.heroButtons}>
@@ -66,7 +87,7 @@ export default function Home() {
               onClick={() => setDemoOpen(true)}
               className={styles.heroSecondaryBtn}
             >
-              데모 보기
+              어떻게 동작하나요?
             </button>
           </div>
         </div>
@@ -122,13 +143,13 @@ export default function Home() {
             <p className={styles.kicker}>
               Features
             </p>
-            <h2 className={styles.sectionTitle}>
-              논문 읽기에 필요한 기능만
+            <h2 className={`${styles.sectionTitle} ${notoSansKr.className}`}>
+              논문 읽기를 학습으로 바꾸는
               <br className={styles.breakSm} />
-              깔끔하게 담았습니다
+              ScholarDot 기능
             </h2>
             <p className={styles.sectionSub}>
-              복잡한 기능을 늘어놓기보다, 실제 읽는 흐름에 필요한 경험에 집중했습니다.
+              단순 열람이 아니라, 이해·기록·복습까지 이어지는 흐름을 설계했습니다.
             </p>
           </div>
 
@@ -155,6 +176,42 @@ export default function Home() {
         </div>
       </section>
 
+      {/* RESEARCH */}
+      <section className={styles.researchSection}>
+        <div className={styles.container}>
+          <div className={styles.sectionHeaderWide}>
+            <p className={styles.kicker}>Research</p>
+            <h2 className={`${styles.sectionTitle} ${notoSansKr.className}`}>
+              왜 이런 UI를 만들었나요?
+            </h2>
+            <p className={styles.sectionSub}>
+              영어 논문 독해의 실제 불편을 줄이기 위해, 읽기 인터페이스 자체를 다시 설계했습니다.
+            </p>
+          </div>
+
+          <div className={styles.researchGrid}>
+            <article className={styles.researchCard}>
+              <h3 className={`${styles.researchCardTitle} ${notoSansKr.className}`}>기존 UX 문제</h3>
+              <ul className={styles.researchList}>
+                <li>원문과 번역을 오가며 왕복 스크롤이 반복됩니다.</li>
+                <li>번역 내용을 따로 복붙하며 읽기 흐름이 끊깁니다.</li>
+                <li>중요 문장을 표시해도 복습 동선이 분리됩니다.</li>
+              </ul>
+            </article>
+
+            <article className={styles.researchCard}>
+              <h3 className={`${styles.researchCardTitle} ${notoSansKr.className}`}>ScholarDot 해결책</h3>
+              <ul className={styles.researchList}>
+                <li>문장 단위로 원문·번역을 병렬 배치해 맥락을 유지합니다.</li>
+                <li>하이라이트·메모·복습 큐를 읽기 흐름 안에 통합합니다.</li>
+                <li>읽기/집중 데이터로 학습 트래킹까지 이어집니다.</li>
+              </ul>
+              <p className={styles.researchBadge}>졸업논문 프로젝트</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
       {/* DEMO */}
       <section className={styles.demoSection}>
         <div className={styles.container}>
@@ -162,7 +219,7 @@ export default function Home() {
             <p className={styles.kicker}>
               Demo
             </p>
-            <h2 className={styles.sectionTitle}>
+            <h2 className={`${styles.sectionTitle} ${notoSansKr.className}`}>
               실제 읽는 화면도
               <br className={styles.breakSm} />
               바로 확인할 수 있습니다
@@ -215,7 +272,7 @@ export default function Home() {
 
         <div className={styles.ctaInner}>
           <div className={styles.ctaCard}>
-            <h2 className={styles.ctaTitle}>
+            <h2 className={`${styles.ctaTitle} ${notoSansKr.className}`}>
               지금 PDF를 업로드하고
               <br className={styles.breakSm} />
               더 편하게 읽어보세요

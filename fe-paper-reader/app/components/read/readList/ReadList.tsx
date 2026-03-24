@@ -5,6 +5,7 @@ import ReadHeader from "../../header/ReadHeader";
 import styles from "./readList.module.css";
 import { useClickOutSide } from "@/app/hooks/useClickOutSide";
 import { useAccessTokenStore } from "@/app/store/useLogin";
+import { getJSON, getNumber, setJSON, setNumber } from "@/lib/localStorage";
 import {
   getNotes,
   createNote,
@@ -17,11 +18,23 @@ import {
 } from "@/app/data/mockTranslationData";
 
 type TranslationPair = MockTranslationPair;
+type HighlightColor = "yellow" | "pink" | "blue";
+
+interface HighlightEntry {
+  color: HighlightColor;
+  text: string;
+}
+
+type HighlightMap = Record<string, HighlightEntry>;
 
 /** 페이지당 문장(항목) 수 (7~8문장 단위) */
 const ITEMS_PER_PAGE = 8;
 
-export default function ReadList() {
+export default function ReadList({
+  storageNamespace = "scholardot-read",
+}: {
+  storageNamespace?: string;
+}) {
   const [data] = useState<TranslationPair[]>(() => {
     if (typeof window === "undefined") return MOCK_TRANSLATION_PAIRS;
     try {
@@ -51,6 +64,21 @@ export default function ReadList() {
   const accessToken = useAccessTokenStore((s) => s.accessToken);
   const [notes, setNotes] = useState<UserDocNoteItem[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
+  const [highlightColor, setHighlightColor] = useState<HighlightColor>("yellow");
+  const [highlightMap, setHighlightMap] = useState<HighlightMap>(() =>
+    getJSON<HighlightMap>(`${storageNamespace}:highlights`, {})
+  );
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    key: string;
+    text: string;
+  } | null>(null);
+  const [savedReadingPosition, setSavedReadingPosition] = useState(() => ({
+    pageIndex: getNumber(`${storageNamespace}:position:pageIndex`, 0),
+    scrollTop: getNumber(`${storageNamespace}:position:scrollTop`, 0),
+  }));
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!documentId || !accessToken) return;
@@ -107,6 +135,7 @@ export default function ReadList() {
   }, [selectionModal]);
 
   const closeSelectionModal = useCallback(() => setSelectionModal(null), []);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   const handleCopySelection = useCallback(() => {
     const text = selectionModalTextRef.current;
@@ -199,6 +228,23 @@ export default function ReadList() {
     selectionModalRef as React.RefObject<HTMLElement>,
     closeSelectionModal
   );
+  useClickOutSide(
+    contextMenuRef as React.RefObject<HTMLElement>,
+    closeContextMenu
+  );
+
+  useEffect(() => {
+    setJSON(`${storageNamespace}:highlights`, highlightMap);
+  }, [highlightMap, storageNamespace]);
+
+  const saveReadingPosition = useCallback(
+    (pageIndex: number, scrollTop: number) => {
+      setSavedReadingPosition({ pageIndex, scrollTop });
+      setNumber(`${storageNamespace}:position:pageIndex`, pageIndex);
+      setNumber(`${storageNamespace}:position:scrollTop`, scrollTop);
+    },
+    [storageNamespace]
+  );
 
   // ─── 스크롤 → 현재 페이지 감지 ───
   useEffect(() => {
@@ -231,6 +277,7 @@ export default function ReadList() {
       if (atBottom && boundaries.length > 0) {
         const lastPage = boundaries[boundaries.length - 1].pageNum;
         setSelectedPageIndex(lastPage - 1);
+        saveReadingPosition(lastPage - 1, scrollTop);
         return;
       }
 
@@ -246,6 +293,7 @@ export default function ReadList() {
       }
 
       setSelectedPageIndex(currentPage - 1);
+      saveReadingPosition(currentPage - 1, scrollTop);
     };
 
     const onScroll = () => {
@@ -262,7 +310,7 @@ export default function ReadList() {
       el.removeEventListener("scroll", onScroll);
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [dataToPage]);
+  }, [dataToPage, saveReadingPosition]);
 
   // ─── 6. 페이지 이동 ───
   const scrollToPage = useCallback(
@@ -279,6 +327,7 @@ export default function ReadList() {
           const targetRect = target.getBoundingClientRect();
           const offset = targetRect.top - containerRect.top + el.scrollTop;
           el.scrollTo({ top: offset, behavior: "smooth" });
+          saveReadingPosition(pageIndex, offset);
         }
         setSelectedPageIndex(pageIndex);
         return;
@@ -288,10 +337,11 @@ export default function ReadList() {
       const el = contentScrollRef.current;
       if (el) {
         el.scrollTo({ top: pageIndex * el.clientHeight, behavior: "smooth" });
+        saveReadingPosition(pageIndex, pageIndex * el.clientHeight);
       }
       setSelectedPageIndex(pageIndex);
     },
-    [pageToFirstIdx]
+    [pageToFirstIdx, saveReadingPosition]
   );
 
   const handlePageChange = useCallback(
@@ -315,6 +365,72 @@ export default function ReadList() {
     });
     return m;
   }, [notes]);
+
+  const sentenceKeyOf = useCallback((docUnitId: number, lang: "en" | "ko") => {
+    return `${docUnitId}:${lang}`;
+  }, []);
+
+  const highlightColorToStyle = useCallback((color: HighlightColor): string => {
+    if (color === "pink") return "rgba(244, 114, 182, 0.25)";
+    if (color === "blue") return "rgba(14, 165, 233, 0.25)";
+    return "rgba(250, 204, 21, 0.35)";
+  }, []);
+
+  const applyHighlight = useCallback(
+    (key: string, text: string, color: HighlightColor) => {
+      setHighlightMap((prev) => ({ ...prev, [key]: { color, text } }));
+    },
+    []
+  );
+
+  const removeHighlight = useCallback((key: string) => {
+    setHighlightMap((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const handleSentenceClick = useCallback(
+    (key: string, text: string) => {
+      applyHighlight(key, text, highlightColor);
+    },
+    [applyHighlight, highlightColor]
+  );
+
+  const handleSentenceContextMenu = useCallback(
+    (e: React.MouseEvent, key: string, text: string) => {
+      e.preventDefault();
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        key,
+        text,
+      });
+    },
+    []
+  );
+
+  const jumpToSavedPosition = useCallback(() => {
+    const el = contentScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: savedReadingPosition.scrollTop, behavior: "smooth" });
+    setSelectedPageIndex(savedReadingPosition.pageIndex);
+  }, [savedReadingPosition.pageIndex, savedReadingPosition.scrollTop]);
+
+  useEffect(() => {
+    const el = contentScrollRef.current;
+    if (!el) return;
+    if (savedReadingPosition.scrollTop <= 0) return;
+    const timer = window.setTimeout(() => {
+      el.scrollTo({ top: savedReadingPosition.scrollTop, behavior: "auto" });
+      setSelectedPageIndex(savedReadingPosition.pageIndex);
+    }, 30);
+    return () => window.clearTimeout(timer);
+  }, [savedReadingPosition.pageIndex, savedReadingPosition.scrollTop]);
+
+  const reviewQueue = useMemo(() => Object.values(highlightMap), [highlightMap]);
 
   /** 검색어가 포함된 텍스트를 하이라이트된 React 노드로 반환 (캡처 그룹 사용 시 홀수 인덱스가 매치) */
   const highlightMatches = useCallback(
@@ -348,16 +464,6 @@ export default function ReadList() {
         filterMode={filterMode}
         onFilterChange={handleFilterChange}
       />
-      <div className={styles.searchBarWrap}>
-        <input
-          type="search"
-          className={styles.searchBar}
-          placeholder="번역문에서 검색..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          aria-label="번역문 검색"
-        />
-      </div>
       <div className={styles.content}>
         {showSidebar && (
           <aside className={styles.sidebar}>
@@ -411,6 +517,37 @@ export default function ReadList() {
                 </li>
               ))}
             </ul>
+            <div className={styles.sidebarSearchWrap}>
+              <input
+                type="search"
+                className={styles.sidebarSearchBar}
+                placeholder="번역문에서 검색..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="번역문 검색"
+              />
+              <button
+                type="button"
+                className={styles.sidebarResumeButton}
+                onClick={jumpToSavedPosition}
+                title="저장된 마지막 읽기 위치로 이동"
+              >
+                마지막 위치 이어 읽기
+              </button>
+            </div>
+            <div className={styles.reviewQueue}>
+              <p className={styles.reviewQueueTitle}>복습 큐: {reviewQueue.length}개</p>
+              <ul className={styles.reviewQueueList}>
+                {reviewQueue.slice(0, 8).map((entry, idx) => (
+                  <li key={`${entry.text}-${idx}`} className={styles.reviewQueueItem}>
+                    {entry.text.length > 44 ? `${entry.text.slice(0, 44)}...` : entry.text}
+                  </li>
+                ))}
+                {reviewQueue.length === 0 && (
+                  <li className={styles.reviewQueueEmpty}>하이라이트한 문장이 여기에 모입니다.</li>
+                )}
+              </ul>
+            </div>
           </aside>
         )}
         <div
@@ -437,12 +574,55 @@ export default function ReadList() {
               )}
               {filterMode === "all" && (
                 <>
-                  <p className={styles.sourceText}>
+                  <p
+                    className={`${styles.sourceText} ${styles.interactiveSentence}`}
+                    onClick={() => handleSentenceClick(sentenceKeyOf(item.docUnitId, "en"), item.sourceText)}
+                    onContextMenu={(e) =>
+                      handleSentenceContextMenu(
+                        e,
+                        sentenceKeyOf(item.docUnitId, "en"),
+                        item.sourceText
+                      )
+                    }
+                    style={
+                      highlightMap[sentenceKeyOf(item.docUnitId, "en")]
+                        ? {
+                            backgroundColor: highlightColorToStyle(
+                              highlightMap[sentenceKeyOf(item.docUnitId, "en")].color
+                            ),
+                          }
+                        : undefined
+                    }
+                  >
                     {searchQuery.trim()
                       ? highlightMatches(item.sourceText, searchQuery)
                       : item.sourceText}
                   </p>
-                  <p className={styles.translatedText}>
+                  <p
+                    className={`${styles.translatedText} ${styles.interactiveSentence}`}
+                    onClick={() =>
+                      handleSentenceClick(
+                        sentenceKeyOf(item.docUnitId, "ko"),
+                        item.translatedText
+                      )
+                    }
+                    onContextMenu={(e) =>
+                      handleSentenceContextMenu(
+                        e,
+                        sentenceKeyOf(item.docUnitId, "ko"),
+                        item.translatedText
+                      )
+                    }
+                    style={
+                      highlightMap[sentenceKeyOf(item.docUnitId, "ko")]
+                        ? {
+                            backgroundColor: highlightColorToStyle(
+                              highlightMap[sentenceKeyOf(item.docUnitId, "ko")].color
+                            ),
+                          }
+                        : undefined
+                    }
+                  >
                     {searchQuery.trim()
                       ? highlightMatches(item.translatedText, searchQuery)
                       : item.translatedText}
@@ -450,14 +630,54 @@ export default function ReadList() {
                 </>
               )}
               {filterMode === "english" && (
-                <p className={styles.sourceText}>
+                <p
+                  className={`${styles.sourceText} ${styles.interactiveSentence}`}
+                  onClick={() => handleSentenceClick(sentenceKeyOf(item.docUnitId, "en"), item.sourceText)}
+                  onContextMenu={(e) =>
+                    handleSentenceContextMenu(
+                      e,
+                      sentenceKeyOf(item.docUnitId, "en"),
+                      item.sourceText
+                    )
+                  }
+                  style={
+                    highlightMap[sentenceKeyOf(item.docUnitId, "en")]
+                      ? {
+                          backgroundColor: highlightColorToStyle(
+                            highlightMap[sentenceKeyOf(item.docUnitId, "en")].color
+                          ),
+                        }
+                      : undefined
+                  }
+                >
                   {searchQuery.trim()
                     ? highlightMatches(item.sourceText, searchQuery)
                     : item.sourceText}
                 </p>
               )}
               {filterMode === "korean" && (
-                <p className={styles.translatedText}>
+                <p
+                  className={`${styles.translatedText} ${styles.interactiveSentence}`}
+                  onClick={() =>
+                    handleSentenceClick(sentenceKeyOf(item.docUnitId, "ko"), item.translatedText)
+                  }
+                  onContextMenu={(e) =>
+                    handleSentenceContextMenu(
+                      e,
+                      sentenceKeyOf(item.docUnitId, "ko"),
+                      item.translatedText
+                    )
+                  }
+                  style={
+                    highlightMap[sentenceKeyOf(item.docUnitId, "ko")]
+                      ? {
+                          backgroundColor: highlightColorToStyle(
+                            highlightMap[sentenceKeyOf(item.docUnitId, "ko")].color
+                          ),
+                        }
+                      : undefined
+                  }
+                >
                   {searchQuery.trim()
                     ? highlightMatches(item.translatedText, searchQuery)
                     : item.translatedText}
@@ -518,6 +738,60 @@ export default function ReadList() {
               닫기
             </button>
           </div>
+        </div>
+      )}
+
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className={styles.highlightMenu}
+          style={{ top: contextMenu.y + 8, left: contextMenu.x }}
+          role="menu"
+          aria-label="형광펜 색상 선택"
+        >
+          <button
+            type="button"
+            className={styles.highlightMenuBtn}
+            onClick={() => {
+              setHighlightColor("yellow");
+              applyHighlight(contextMenu.key, contextMenu.text, "yellow");
+              closeContextMenu();
+            }}
+          >
+            노랑
+          </button>
+          <button
+            type="button"
+            className={styles.highlightMenuBtn}
+            onClick={() => {
+              setHighlightColor("pink");
+              applyHighlight(contextMenu.key, contextMenu.text, "pink");
+              closeContextMenu();
+            }}
+          >
+            분홍
+          </button>
+          <button
+            type="button"
+            className={styles.highlightMenuBtn}
+            onClick={() => {
+              setHighlightColor("blue");
+              applyHighlight(contextMenu.key, contextMenu.text, "blue");
+              closeContextMenu();
+            }}
+          >
+            파랑
+          </button>
+          <button
+            type="button"
+            className={`${styles.highlightMenuBtn} ${styles.highlightMenuBtnDanger}`}
+            onClick={() => {
+              removeHighlight(contextMenu.key);
+              closeContextMenu();
+            }}
+          >
+            삭제
+          </button>
         </div>
       )}
     </main>
