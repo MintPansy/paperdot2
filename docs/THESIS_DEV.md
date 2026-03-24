@@ -128,3 +128,35 @@
 - **백엔드 로컬 기동/빌드 오류 해결 (BE/DevOps)**
   - Docker 빌드 실패 원인(컴파일 에러) 수정: `ObjectStorageClientConfig`, `UserDocNoteService`의 문제를 최소 수정으로 해결.
   - 런타임/부팅 실패 원인인 필수 env 미설정(`JWT_SECRET`, OAuth 필수 값들)을 로컬용 더미 값으로 채워 서버가 기동되도록 처리.
+
+### 2026-03-24 (추가: ScholarDot 형광펜 기능 구현 계획)
+- 형광펜 기능 구현 계획 (FE - @components/Read.tsx)
+
+- 문장 단위 클릭으로 3색 하이라이트(노랑=중요, 초록=이해, 핑크=질문) 토글 기능 설계.
+
+- 상태 관리: highlights: Highlight[], selectedColor: string state 추가 및 useEffect로 localStorage 로드.
+
+- 문장 렌더링 수정: sentences.map()에서 className={sentence ${hl ? highlight-${hl.color} : ''}} 적용, onClick={toggleHighlight} 핸들러 연결.
+
+- 하이라이트 토글 로직 핵심 (FE - Read.tsx)
+
+- toggleHighlight(page, idx, color): 기존 하이라이트 제거 후 신규 추가/저장 로직 구현.
+
+- CSS 오버레이: .highlight-yellow { background: rgba(255,255,0,0.3); } 등 3색 스타일링.
+
+- 데이터 구조: {pageIndex: number, sentenceIndex: number, color: string}[] 배열로 문장별 색상 추적.
+
+- localStorage 유틸리티 신규 (@lib/localStorage.ts)
+
+- saveHighlights(key: string, data: Highlight[]): JSON 직렬화 후 저장.
+
+- loadHighlights(key: string): Highlight[]: 파싱 후 빈 배열 반환 기본값 처리.
+
+- 다중 PDF 지원: 키에 highlights-${pdfName} 형식 적용.
+
+- 사이드바 UI 연계 준비 (FE)
+
+- 색상 선택 버튼 3개 추가: 클릭 시 setSelectedColor('yellow'|'lightgreen'|'pink').
+
+- 하이라이트 미리보기/관리 영역 예약: 복습 큐 연결을 위한 데이터 연동 준비.
+
