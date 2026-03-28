@@ -263,3 +263,30 @@
   - 오늘은 코드 변경/성능 측정 실행 대신, 실험 막힘 원인을 환경 레벨에서 분리 진단.
   - 다음 실행 순서: Docker Desktop 엔진 실행 확인 → JDK 17 설치 및 `JAVA_HOME` 점검 → 백엔드 기동 확인 후 `measure_pipeline.py`부터 재시도.
 
+### 2026-03-28 (프론트 Vercel 배포 + 백엔드 Railway·운영 환경 정리)
+
+- **프론트엔드 프로덕션 배포 (Vercel)**
+  - `fe-paper-reader`를 Root Directory로 두고 배포 완료. 공개 URL: `https://scholardot.vercel.app/`.
+  - 빌드 실패 원인: `package.json`에 `@fontsource/noto-sans-kr`, `@fontsource/roboto` 추가 후 `pnpm-lock.yaml` 미갱신 → CI의 frozen-lockfile과 불일치 (`ERR_PNPM_OUTDATED_LOCKFILE`).
+  - 해결: 로컬에서 `pnpm install`로 lockfile 동기화 후 커밋·푸시.
+
+- **배포 아키텍처 정리 (논문·운영 메모)**
+  - Vercel은 Next.js 프론트 전용. Spring Boot·PostgreSQL·장시간 프로세스는 Railway / Render / Fly.io / AWS 등 별도 호스팅.
+  - 시크릿(JWT, OAuth, OpenAI, S3)은 호스팅 환경 변수로만 주입, 저장소에 커밋하지 않음.
+
+- **환경 변수·문서 (`fe-paper-reader`)**
+  - `.env.local`: 개인/로컬용으로 유지, 커밋 대상 아님.
+  - `.env.example`: 플레이스홀더 중심으로 두고 팀·배포 참고용으로 쓰는 편이 좋음. `.gitignore`의 `.env*` 때문에 예시 파일이 무시되면 `!.env.example`로 예외 처리 검토.
+
+- **카카오 로그인·CORS·OAuth (백엔드 분리 배포)**
+  - 카카오 플로우는 브라우저가 백엔드 `oauth2/authorization/kakao`로 진입하고, 콜백은 백엔드 `login/oauth2/code/kakao` → 공개 HTTPS 백엔드가 필수.
+  - Kakao 개발자 콘솔 Redirect URI는 **프론트가 아니라 배포된 백엔드 도메인** 기준.
+  - CORS 및 로그인 후 리다이렉트: `SecurityConfig`가 `paperdot.frontend.base-url` 단일 출처 사용 → 프로덕션에서는 `PAPERDOT_FRONTEND_BASE_URL=https://scholardot.vercel.app` 등으로 맞출 것. Vercel `NEXT_PUBLIC_API_URL`은 배포된 백엔드 URL로 설정.
+
+- **Railway·PostgreSQL 연동 메모**
+  - Spring 표준: `SPRING_DATASOURCE_URL`(JDBC), `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`.
+  - Railway에서는 Postgres 서비스 변수를 참조하는 형태로 채움 (예: `jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}`, 사용자·비밀번호도 `${{Postgres.PGUSER}}` 등). `Postgres` 부분은 대시보드상 DB 서비스 이름과 일치해야 함.
+
+- **로컬 도구 (Windows)**
+  - `openssl rand -hex 32` 미설치 시: PowerShell에서 `[System.Security.Cryptography.RandomNumberGenerator]`로 32바이트 hex 생성해 `JWT_SECRET` 등에 사용 가능.
+
