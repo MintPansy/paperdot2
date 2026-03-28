@@ -23,7 +23,10 @@
       "Bash(py --version)",
       "Bash(py -m pip install requests -q)",
       "Bash(py measure_pipeline.py)",
-      "Bash(py:*)"
+      "Bash(py:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
