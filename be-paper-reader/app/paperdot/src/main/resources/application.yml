@@ -51,3 +51,9 @@ translation:
     core-pool-size: 4
     max-pool-size: 8
     queue-capacity: 200
+
+paperdot:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-ttl-seconds: 3600
+    refresh-ttl-seconds: 604800
