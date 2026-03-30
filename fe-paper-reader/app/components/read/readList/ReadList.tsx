@@ -5,7 +5,7 @@ import ReadHeader from "../../header/ReadHeader";
 import styles from "./readList.module.css";
 import { useClickOutSide } from "@/app/hooks/useClickOutSide";
 import { useAccessTokenStore } from "@/app/store/useLogin";
-import { getJSON, getNumber, setJSON, setNumber } from "@/lib/localStorage";
+import { getJSON, getNumber, setJSON, setNumber, getReadingProgress, setReadingProgress } from "@/lib/localStorage";
 import {
   getNotes,
   createNote,
@@ -20,7 +20,7 @@ import {
 } from "@/app/data/mockTranslationData";
 
 type TranslationPair = MockTranslationPair;
-type HighlightColor = "yellow" | "pink" | "blue";
+type HighlightColor = "yellow" | "green" | "pink";
 
 interface HighlightEntry {
   color: HighlightColor;
@@ -75,7 +75,7 @@ export default function ReadList({
   const [notesLoading, setNotesLoading] = useState(false);
   const [highlightColor, setHighlightColor] = useState<HighlightColor>("yellow");
   const [highlightMap, setHighlightMap] = useState<HighlightMap>(() =>
-    getJSON<HighlightMap>(`${storageNamespace}:highlights`, {})
+    getJSON<HighlightMap>(`${storageNamespace}:${documentId ?? 'local'}:highlights`, {})
   );
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -83,10 +83,14 @@ export default function ReadList({
     key: string;
     text: string;
   } | null>(null);
-  const [savedReadingPosition, setSavedReadingPosition] = useState(() => ({
-    pageIndex: getNumber(`${storageNamespace}:position:pageIndex`, 0),
-    scrollTop: getNumber(`${storageNamespace}:position:scrollTop`, 0),
-  }));
+  const [savedReadingPosition, setSavedReadingPosition] = useState(() => {
+    const progress = getReadingProgress(fileName);
+    if (progress) return { pageIndex: progress.pageIndex, scrollTop: progress.scrollTop };
+    return {
+      pageIndex: getNumber(`${storageNamespace}:position:pageIndex`, 0),
+      scrollTop: getNumber(`${storageNamespace}:position:scrollTop`, 0),
+    };
+  });
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -112,6 +116,7 @@ export default function ReadList({
     "all"
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatchIdx, setSearchMatchIdx] = useState(-1);
 
   // 파생 값: 7~8문장 단위로 페이지 묶음
   const dataToPage = useMemo(
@@ -151,7 +156,7 @@ export default function ReadList({
 
   const highlightColorToHex = useCallback((color: HighlightColor): string => {
     if (color === "pink") return "#f472b6";
-    if (color === "blue") return "#0ea5e9";
+    if (color === "green") return "#4ade80";
     return "#fff59d";
   }, []);
 
@@ -263,8 +268,8 @@ export default function ReadList({
   );
 
   useEffect(() => {
-    setJSON(`${storageNamespace}:highlights`, highlightMap);
-  }, [highlightMap, storageNamespace]);
+    setJSON(`${storageNamespace}:${documentId ?? 'local'}:highlights`, highlightMap);
+  }, [highlightMap, storageNamespace, documentId]);
 
   // DB HIGHLIGHT 노트 → highlightMap 동기화 (다른 기기/캐시 초기화 대응)
   useEffect(() => {
@@ -283,7 +288,7 @@ export default function ReadList({
         if (merged[enKey] || merged[koKey]) return; // 이미 있으면 스킵
         const color: HighlightColor =
           note.color === "#f472b6" ? "pink" :
-          note.color === "#0ea5e9" ? "blue" : "yellow";
+          note.color === "#4ade80" ? "green" : "yellow";
         const lang = note.content === item.sourceText ? "en" : "ko";
         merged[`${note.docUnitId}:${lang}`] = { color, text: note.content };
         changed = true;
@@ -295,10 +300,9 @@ export default function ReadList({
   const saveReadingPosition = useCallback(
     (pageIndex: number, scrollTop: number) => {
       setSavedReadingPosition({ pageIndex, scrollTop });
-      setNumber(`${storageNamespace}:position:pageIndex`, pageIndex);
-      setNumber(`${storageNamespace}:position:scrollTop`, scrollTop);
+      setReadingProgress(fileName, { pageIndex, scrollTop, updatedAt: Date.now() });
     },
-    [storageNamespace]
+    [fileName]
   );
 
   // ─── 스크롤 → 현재 페이지 감지 ───
@@ -427,7 +431,7 @@ export default function ReadList({
 
   const highlightColorToStyle = useCallback((color: HighlightColor): string => {
     if (color === "pink") return "rgba(244, 114, 182, 0.25)";
-    if (color === "blue") return "rgba(14, 165, 233, 0.25)";
+    if (color === "green") return "rgba(74, 222, 128, 0.35)";
     return "rgba(250, 204, 21, 0.35)";
   }, []);
 
@@ -468,9 +472,13 @@ export default function ReadList({
 
   const handleSentenceClick = useCallback(
     (key: string, text: string) => {
-      applyHighlight(key, text, highlightColor);
+      if (highlightMap[key]) {
+        removeHighlight(key);
+      } else {
+        applyHighlight(key, text, highlightColor);
+      }
     },
-    [applyHighlight, highlightColor]
+    [applyHighlight, removeHighlight, highlightColor, highlightMap]
   );
 
   const handleSentenceContextMenu = useCallback(
@@ -504,7 +512,91 @@ export default function ReadList({
     return () => window.clearTimeout(timer);
   }, [savedReadingPosition.pageIndex, savedReadingPosition.scrollTop]);
 
-  const reviewQueue = useMemo(() => Object.entries(highlightMap), [highlightMap]);
+  // 3초마다 현재 위치 자동저장
+  useEffect(() => {
+    const el = contentScrollRef.current;
+    if (!el) return;
+    const id = window.setInterval(() => {
+      setReadingProgress(fileName, {
+        pageIndex: selectedPageIndex,
+        scrollTop: el.scrollTop,
+        updatedAt: Date.now(),
+      });
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [fileName, selectedPageIndex]);
+
+  // ─── 검색 이동 ───
+  /** 검색어가 포함된 data 인덱스 목록 (필터 모드 반영) */
+  const searchMatchItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return data.reduce<number[]>((acc, item, idx) => {
+      const inSrc = item.sourceText.toLowerCase().includes(q);
+      const inTgt = item.translatedText.toLowerCase().includes(q);
+      const visible =
+        filterMode === "english" ? inSrc :
+        filterMode === "korean"  ? inTgt :
+        inSrc || inTgt;
+      if (visible) acc.push(idx);
+      return acc;
+    }, []);
+  }, [searchQuery, data, filterMode]);
+
+  /** 검색어 바뀌면 위치 초기화 (Enter 전까지 스크롤 안 함) */
+  useEffect(() => {
+    setSearchMatchIdx(-1);
+  }, [searchQuery]);
+
+  /** searchMatchIdx 변경 시 해당 항목으로 스크롤 */
+  useEffect(() => {
+    if (searchMatchIdx < 0 || searchMatchItems.length === 0) return;
+    const dataIdx = searchMatchItems[searchMatchIdx];
+    const el = contentScrollRef.current;
+    const ref = itemRefs.current[dataIdx];
+    if (!el || !ref) return;
+    const containerRect = el.getBoundingClientRect();
+    const targetRect = ref.getBoundingClientRect();
+    const offset = targetRect.top - containerRect.top + el.scrollTop;
+    el.scrollTo({ top: offset, behavior: "smooth" });
+    setSelectedPageIndex(Math.floor(dataIdx / ITEMS_PER_PAGE));
+  }, [searchMatchIdx, searchMatchItems]);
+
+  const handleSearchKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key !== "Enter" || searchMatchItems.length === 0) return;
+      e.preventDefault();
+      setSearchMatchIdx((prev) =>
+        e.shiftKey
+          ? (prev <= 0 ? searchMatchItems.length - 1 : prev - 1)
+          : (prev + 1) % searchMatchItems.length
+      );
+    },
+    [searchMatchItems]
+  );
+
+  const reviewQueue = useMemo(() => {
+    const entries = Object.entries(highlightMap);
+    entries.sort(([keyA], [keyB]) => {
+      const idxA = data.findIndex((d) => d.docUnitId === parseInt(keyA.split(":")[0], 10));
+      const idxB = data.findIndex((d) => d.docUnitId === parseInt(keyB.split(":")[0], 10));
+      return idxA - idxB;
+    });
+    return entries;
+  }, [highlightMap, data]);
+
+  const pageOfKey = useCallback(
+    (key: string): number => {
+      const docUnitId = parseInt(key.split(":")[0], 10);
+      const idx = data.findIndex((d) => d.docUnitId === docUnitId);
+      return idx < 0 ? 1 : Math.floor(idx / ITEMS_PER_PAGE) + 1;
+    },
+    [data]
+  );
+
+  const clearAllHighlights = useCallback(() => {
+    setHighlightMap({});
+  }, []);
 
   const jumpToHighlight = useCallback(
     (key: string) => {
@@ -518,20 +610,22 @@ export default function ReadList({
       const targetRect = ref.getBoundingClientRect();
       const offset = targetRect.top - containerRect.top + el.scrollTop;
       el.scrollTo({ top: offset, behavior: "smooth" });
+      setSelectedPageIndex(Math.floor(idx / ITEMS_PER_PAGE));
     },
     [data]
   );
 
-  /** 검색어가 포함된 텍스트를 하이라이트된 React 노드로 반환 (캡처 그룹 사용 시 홀수 인덱스가 매치) */
+  /** 검색어가 포함된 텍스트를 하이라이트된 React 노드로 반환.
+   *  isActive=true 이면 현재 포커스 매치로 강조 색 적용. */
   const highlightMatches = useCallback(
-    (text: string, query: string): React.ReactNode => {
+    (text: string, query: string, isActive = false): React.ReactNode => {
       if (!query.trim()) return text;
       const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const re = new RegExp(`(${escaped})`, "gi");
       const parts = text.split(re);
       return parts.map((part, i) =>
         i % 2 === 1 ? (
-          <mark key={i} className={styles.highlight}>
+          <mark key={i} className={isActive ? styles.highlightActive : styles.highlight}>
             {part}
           </mark>
         ) : (
@@ -607,9 +701,10 @@ export default function ReadList({
                 </li>
               ))}
             </ul>
+            <div className={styles.sidebarTools}>
             <div className={styles.colorPicker}>
               <span className={styles.colorPickerLabel}>형광펜</span>
-              {(["yellow", "pink", "blue"] as HighlightColor[]).map((c) => (
+              {(["yellow", "green", "pink"] as HighlightColor[]).map((c) => (
                 <button
                   key={c}
                   type="button"
@@ -618,20 +713,32 @@ export default function ReadList({
                   }`}
                   style={{ background: highlightColorToStyle(c) }}
                   onClick={() => setHighlightColor(c)}
-                  title={c === "yellow" ? "노랑" : c === "pink" ? "분홍" : "파랑"}
+                  title={c === "yellow" ? "노랑" : c === "green" ? "초록" : "분홍"}
                   aria-pressed={highlightColor === c}
                 />
               ))}
             </div>
+            <hr className={styles.sidebarDivider} />
             <div className={styles.sidebarSearchWrap}>
+              <span className={styles.sidebarSectionLabel}>검색 · 이어읽기</span>
               <input
                 type="search"
                 className={styles.sidebarSearchBar}
-                placeholder="번역문에서 검색..."
+                placeholder="검색 후 Enter로 이동..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 aria-label="번역문 검색"
               />
+              {searchQuery.trim() && (
+                <span className={styles.searchCounter}>
+                  {searchMatchItems.length === 0
+                    ? "결과 없음"
+                    : searchMatchIdx < 0
+                    ? `${searchMatchItems.length}개 — Enter로 이동`
+                    : `${searchMatchIdx + 1} / ${searchMatchItems.length}`}
+                </span>
+              )}
               <button
                 type="button"
                 className={styles.sidebarResumeButton}
@@ -641,10 +748,23 @@ export default function ReadList({
                 마지막 위치 이어 읽기
               </button>
             </div>
+            <hr className={styles.sidebarDivider} />
             <div className={styles.reviewQueue}>
-              <p className={styles.reviewQueueTitle}>복습 큐: {reviewQueue.length}개</p>
+              <div className={styles.reviewQueueTitleRow}>
+                <p className={styles.reviewQueueTitle}>📋 복습 큐 ({reviewQueue.length})</p>
+                {reviewQueue.length > 0 && (
+                  <button
+                    type="button"
+                    className={styles.reviewQueueClearBtn}
+                    onClick={clearAllHighlights}
+                    title="하이라이트 전체 삭제"
+                  >
+                    전체 삭제
+                  </button>
+                )}
+              </div>
               <ul className={styles.reviewQueueList}>
-                {reviewQueue.slice(0, 8).map(([key, entry]) => (
+                {reviewQueue.map(([key, entry]) => (
                   <li
                     key={key}
                     className={styles.reviewQueueItem}
@@ -655,8 +775,11 @@ export default function ReadList({
                       className={styles.reviewQueueDot}
                       style={{ background: highlightColorToStyle(entry.color) }}
                     />
+                    <span className={styles.reviewQueuePageLabel}>
+                      p.{pageOfKey(key)}
+                    </span>
                     <span className={styles.reviewQueueText}>
-                      {entry.text.length > 40 ? `${entry.text.slice(0, 40)}…` : entry.text}
+                      {entry.text.length > 36 ? `${entry.text.slice(0, 36)}…` : entry.text}
                     </span>
                     <button
                       type="button"
@@ -674,6 +797,7 @@ export default function ReadList({
                 )}
               </ul>
             </div>
+            </div>{/* sidebarTools */}
           </aside>
         )}
         <div
@@ -686,13 +810,17 @@ export default function ReadList({
             const unitNotes = notesByDocUnitId.get(item.docUnitId) ?? [];
             const hasHighlight = unitNotes.some((n) => n.noteType === "HIGHLIGHT");
             const memos = unitNotes.filter((n) => n.noteType === "MEMO");
+            const isSearchActive = searchMatchIdx >= 0 && searchMatchItems[searchMatchIdx] === index;
             return (
             <div
               key={item.docUnitId}
               ref={(el) => {
                 itemRefs.current[index] = el;
               }}
-              className={hasHighlight ? styles.hasSavedHighlight : undefined}>
+              className={[
+                styles.docUnitWrapper,
+                hasHighlight ? styles.hasSavedHighlight : "",
+              ].filter(Boolean).join(" ")}>
               {memos.length > 0 && (
                 <div
                   className={styles.memoBadge}
@@ -730,7 +858,7 @@ export default function ReadList({
                     }
                   >
                     {searchQuery.trim()
-                      ? highlightMatches(item.sourceText, searchQuery)
+                      ? highlightMatches(item.sourceText, searchQuery, isSearchActive)
                       : item.sourceText}
                   </p>
                   <p
@@ -759,7 +887,7 @@ export default function ReadList({
                     }
                   >
                     {searchQuery.trim()
-                      ? highlightMatches(item.translatedText, searchQuery)
+                      ? highlightMatches(item.translatedText, searchQuery, isSearchActive)
                       : item.translatedText}
                   </p>
                 </>
@@ -786,7 +914,7 @@ export default function ReadList({
                   }
                 >
                   {searchQuery.trim()
-                    ? highlightMatches(item.sourceText, searchQuery)
+                    ? highlightMatches(item.sourceText, searchQuery, isSearchActive)
                     : item.sourceText}
                 </p>
               )}
@@ -814,7 +942,7 @@ export default function ReadList({
                   }
                 >
                   {searchQuery.trim()
-                    ? highlightMatches(item.translatedText, searchQuery)
+                    ? highlightMatches(item.translatedText, searchQuery, isSearchActive)
                     : item.translatedText}
                 </p>
               )}
@@ -927,23 +1055,23 @@ export default function ReadList({
             type="button"
             className={styles.highlightMenuBtn}
             onClick={() => {
+              setHighlightColor("green");
+              applyHighlight(contextMenu.key, contextMenu.text, "green");
+              closeContextMenu();
+            }}
+          >
+            초록
+          </button>
+          <button
+            type="button"
+            className={styles.highlightMenuBtn}
+            onClick={() => {
               setHighlightColor("pink");
               applyHighlight(contextMenu.key, contextMenu.text, "pink");
               closeContextMenu();
             }}
           >
             분홍
-          </button>
-          <button
-            type="button"
-            className={styles.highlightMenuBtn}
-            onClick={() => {
-              setHighlightColor("blue");
-              applyHighlight(contextMenu.key, contextMenu.text, "blue");
-              closeContextMenu();
-            }}
-          >
-            파랑
           </button>
           <button
             type="button"

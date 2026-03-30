@@ -39,3 +39,17 @@ export function setNumber(key: string, value: number): void {
   }
 }
 
+export interface ReadingProgress {
+  pageIndex: number;
+  scrollTop: number;
+  updatedAt: number;
+}
+
+export function getReadingProgress(pdfName: string): ReadingProgress | null {
+  return getJSON<ReadingProgress | null>(`readingProgress-${pdfName}`, null);
+}
+
+export function setReadingProgress(pdfName: string, progress: ReadingProgress): void {
+  setJSON(`readingProgress-${pdfName}`, progress);
+}
+

@@ -15,6 +15,8 @@
   width: 100%;
 }
 
+/* ==================== Sidebar ==================== */
+
 .sidebar {
   width: var(--sidebar-width);
   height: 100%;
@@ -27,6 +29,7 @@
   flex-shrink: 0;
 }
 
+/* 페이지 썸네일 리스트 */
 .pageList {
   list-style: none;
   margin: 0;
@@ -58,21 +61,23 @@
   border-radius: 8px;
   background: #ffffff;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s, background 0.18s;
   overflow: hidden;
   height: 140px;
   aspect-ratio: 27/35;
 }
 
 .pageCard:hover {
-  border-color: rgba(37, 99, 235, 0.65); /* primary blue */
+  border-color: rgba(37, 99, 235, 0.55);
   transform: scale(1.04);
-  box-shadow: 0 10px 24px rgba(30, 58, 138, 0.16);
+  box-shadow: 0 8px 20px rgba(30, 58, 138, 0.14);
 }
 
+/* 선택된 페이지 카드: 테두리 + 배경 tint + ring */
 .pageCardSelected {
-  border-color: var(--pd-navy, #1e3a8a);
-  box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.35);
+  border-color: #1e3a8a;
+  background: rgba(30, 58, 138, 0.04);
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.18), 0 4px 12px rgba(30, 58, 138, 0.12);
 }
 
 .pagePreview {
@@ -102,7 +107,6 @@
   background: #f0f4fa;
 }
 
-/* 페이지 썸네일: 각 페이지 전체 원문·번역 표시 (카드 안 스크롤) */
 .pagePreviewText {
   width: 100%;
   height: 100%;
@@ -137,7 +141,7 @@
 
 .pagePreviewTextSourceText,
 .pagePreviewTextText {
-  font-size: 0.78rem; /* ~12.5px: small, but readable */
+  font-size: 0.78rem;
   font-weight: 400;
   line-height: 1.4;
   min-height: 0;
@@ -148,11 +152,11 @@
 }
 
 .pagePreviewTextSourceText {
-  color: #111827; /* stronger contrast */
+  color: #111827;
 }
 
 .pagePreviewTextText {
-  color: #6b7280; /* weak gray */
+  color: #6b7280;
 }
 
 .pageNumber {
@@ -162,25 +166,151 @@
   font-weight: 400;
   line-height: 150%;
   letter-spacing: -0.26px;
-  color: #9ca3af; /* low-contrast meta */
+  color: #9ca3af;
 }
 
-.pageListItem {
+/* 사이드바 하단 도구 패널 (형광펜·검색·복습큐) */
+.sidebarTools {
+  border-top: 1px solid #d4dbe8;
+  margin-top: 2px;
+  padding-top: 10px;
   display: flex;
   flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  flex-shrink: 0;
+  max-height: 56vh;   /* 썸네일 영역이 너무 눌리지 않도록 */
+}
+
+/* 섹션 간 구분선 */
+.sidebarDivider {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 8px 0;
+}
+
+/* 섹션 레이블 (검색·이어읽기 위) */
+.sidebarSectionLabel {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+/* 형광펜 선택 */
+.colorPicker {
+  display: flex;
   align-items: center;
   gap: 8px;
+  padding: 2px 0 8px;
 }
+
+.colorPickerLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.colorPickerBtn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.colorPickerBtn:hover {
+  transform: scale(1.2);
+}
+
+.colorPickerBtnActive {
+  border-color: #1e3a8a;
+  transform: scale(1.18);
+  box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.22);
+}
+
+/* 검색 + 이어읽기 */
+.sidebarSearchWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 0 2px;
+}
+
+.sidebarSearchBar {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px 7px 30px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  border: 1px solid #d4dbe8;
+  border-radius: 8px;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 8px 50%;
+  background-size: 15px;
+  color: #374151;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sidebarSearchBar::placeholder {
+  color: #b0b9c7;
+}
+
+.sidebarSearchBar:focus {
+  outline: none;
+  border-color: #1e3a8a;
+  box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.18);
+}
+
+/* 이어읽기 버튼 — accent 채움으로 CTA 강화 */
+.sidebarResumeButton {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: none;
+  background: #1e3a8a;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s;
+}
+
+.sidebarResumeButton:hover {
+  background: #1e40af;
+}
+
+/* ==================== Main Reading Area ==================== */
 
 .docUnitId {
   position: relative;
   display: flex;
   width: calc(100% - var(--sidebar-width));
   flex-direction: column;
-  gap: 48px;
+  gap: 0;                  /* gap 제거 → docUnitWrapper로 간격 제어 */
   padding-top: 36px;
   padding-inline: 120px;
   overflow-y: auto;
+}
+
+/* 문서 단위 래퍼 — 문장 블록 간 시각 구분 */
+.docUnitWrapper {
+  padding: 20px 0 20px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.docUnitWrapper:last-child {
+  border-bottom: none;
+  padding-bottom: 60px;
 }
 
 .pageDivider {
@@ -202,16 +332,43 @@
   background: #d4dbe8;
 }
 
-.docUnitIdItem {
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  gap: 12px;
+/* 원문 — weight 완화, line-height 확보 */
+.sourceText {
+  color: var(--pd-navy, #1e3a8a);
+  font-size: 1.08rem;
+  font-weight: 600;
+  line-height: 1.55;
+  letter-spacing: -0.018em;
+  margin: 0;
+}
+
+.sourceText::selection,
+.translatedText::selection {
+  background-color: rgba(255, 235, 59, 0.6);
+  color: #1a1a1a;
+}
+
+/* 번역문 — 더 넓은 line-height로 가독성 확보 */
+.translatedText {
+  color: #64748b;
+  font-size: 0.97rem;
+  font-weight: 500;
+  line-height: 1.65;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+/* 클릭 가능한 문장 — hover 상태 명확화 */
+.interactiveSentence {
   cursor: pointer;
-  padding: 8px 0;
-  margin: -8px 0;
-  border-radius: 8px;
-  transition: background-color 0.15s;
+  border-radius: 6px;
+  padding: 3px 6px;
+  margin: -3px -6px;
+  transition: background-color 0.15s ease;
+}
+
+.interactiveSentence:hover {
+  background-color: rgba(30, 58, 138, 0.05);
 }
 
 .bookmarkIcon {
@@ -226,30 +383,32 @@
   background-color: #d4dbe8;
 }
 
-.sourceText {
-  color: var(--pd-navy, #1e3a8a);
-  font-size: 1.1rem;
-  font-weight: 800;
-  line-height: 1.25;
-  letter-spacing: -0.02em;
+/* DB에 저장된 하이라이트 문단 */
+.hasSavedHighlight {
+  background-color: rgba(255, 235, 59, 0.12);
+  border-left: 3px solid rgba(37, 99, 235, 0.55);
+  padding-left: 10px;
+  margin-left: -13px;
+  border-radius: 0 4px 4px 0;
 }
 
-.sourceText::selection,
-.translatedText::selection {
-  background-color: rgba(255, 235, 59, 0.6);
-  color: #1a1a1a;
+/* 메모 배지 */
+.memoBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: #6b7280;
+  padding: 2px 8px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  width: fit-content;
+  cursor: default;
 }
 
-.translatedText {
-  color: #6b7280; /* secondary text */
-  font-size: 1rem;
-  font-weight: 500;
-  line-height: 1.35;
-  letter-spacing: -0.01em;
-  text-transform: none;
-}
+/* ==================== Overlays & Modals ==================== */
 
-/* 텍스트 선택 시 팝오버 모달 */
+/* 텍스트 선택 팝오버 */
 .selectionModal {
   position: fixed;
   z-index: 1000;
@@ -264,8 +423,8 @@
 
 .selectionModalText {
   margin: 0 0 12px;
-  font-size: 0.9rem;
-  line-height: 1.5;
+  font-size: 0.88rem;
+  line-height: 1.55;
   color: #6b7280;
   word-break: break-word;
   max-height: 120px;
@@ -282,19 +441,19 @@
   padding: 6px 14px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--pd-navy, #1e3a8a);
-  background: var(--pd-cream-bg, #fefdf3);
+  color: #1e3a8a;
+  background: #f0f4ff;
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
 
 .selectionModalBtn:hover {
-  background: rgba(30, 58, 138, 0.12);
+  background: rgba(30, 58, 138, 0.14);
 }
 
-/* 검색 하이라이트 */
+/* 검색 하이라이트 — 비활성 매치 */
 .highlight {
   background-color: rgba(255, 235, 59, 0.55);
   padding: 0 2px;
@@ -302,120 +461,66 @@
   border: 1px solid rgba(30, 58, 138, 0.12);
 }
 
-/* 형광펜 색상 선택 */
-.colorPicker {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0 4px;
+/* 검색 하이라이트 — 현재 포커스 매치 (주황색) */
+.highlightActive {
+  background-color: rgba(251, 146, 60, 0.8);
+  padding: 0 2px;
+  border-radius: 2px;
+  border: 1px solid rgba(234, 88, 12, 0.55);
+  color: #1a1a1a;
 }
 
-.colorPickerLabel {
-  font-size: 0.75rem;
-  font-weight: 600;
+/* 검색 결과 카운터 */
+.searchCounter {
+  display: block;
+  font-size: 0.7rem;
   color: #64748b;
-  flex-shrink: 0;
-}
-
-.colorPickerBtn {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  transition: transform 0.15s, border-color 0.15s;
-}
-
-.colorPickerBtn:hover {
-  transform: scale(1.2);
-}
-
-.colorPickerBtnActive {
-  border-color: #1e3a8a;
-  transform: scale(1.15);
-  box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.25);
-}
-
-/* 사이드바 내 검색 + 이어읽기 */
-.sidebarSearchWrap {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 0 8px;
-}
-
-.sidebarSearchBar {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 10px 8px 32px;
-  font-size: 0.85rem;
+  text-align: right;
   line-height: 1.4;
-  border: 1px solid #d4dbe8;
-  border-radius: 8px;
-  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 8px 50%;
-  background-size: 16px;
+  padding-right: 2px;
 }
 
-.sidebarSearchBar::placeholder {
-  color: #9ca3af;
-}
-
-.sidebarSearchBar:focus {
-  outline: none;
-  border-color: var(--pd-navy, #1e3a8a);
-  box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.2);
-}
-
-/* 저장된 하이라이트가 있는 문단 */
-.hasSavedHighlight {
-  background-color: rgba(255, 235, 59, 0.15);
-  border-left: 4px solid rgba(37, 99, 235, 0.8); /* emphasize with primary */
-  padding-left: 8px;
-  margin-left: -8px;
-  border-radius: 0 4px 4px 0;
-}
-
-/* 메모 배지 */
-.memoBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.85rem;
-  color: #6b7280;
-  margin-bottom: 4px;
-  padding: 2px 8px;
-  background: #f3f4f6;
-  border-radius: 6px;
-  width: fit-content;
-  cursor: default;
-}
-
-.interactiveSentence {
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background-color 0.15s ease;
-}
-
-.sidebarResumeButton {
-  width: 100%;
-  padding: 7px 10px;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
+/* 형광펜 컨텍스트 메뉴 */
+.highlightMenu {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
   background: #ffffff;
-  color: #0f172a;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
 }
 
-.sidebarResumeButton:hover {
-  background: #f1f5f9;
+.highlightMenuBtn {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
 }
+
+.highlightMenuBtn:hover {
+  background: #f8fafc;
+}
+
+.highlightMenuBtnDanger {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.highlightMenuBtnDanger:hover {
+  background: #fef2f2;
+}
+
+/* ==================== Review Queue ==================== */
 
 .reviewQueue {
-  margin-top: 14px;
   padding: 10px;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
@@ -423,42 +528,64 @@
   margin-bottom: 12px;
 }
 
-.sidebar .reviewQueue {
-  margin-top: auto;
+.reviewQueueTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .reviewQueueTitle {
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   color: #334155;
   font-weight: 700;
   text-align: left;
+}
+
+.reviewQueueClearBtn {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: #94a3b8;
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  line-height: 1.5;
+}
+
+.reviewQueueClearBtn:hover {
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: #fff1f2;
 }
 
 .reviewQueueList {
   margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .reviewQueueItem {
   display: flex;
-  align-items: baseline;
+  align-items: center;     /* baseline → center 로 dot 정렬 */
   gap: 6px;
   text-align: left;
-  font-size: 0.78rem;
+  font-size: 0.77rem;
   color: #475569;
   line-height: 1.35;
   border-radius: 6px;
-  padding: 4px 6px;
+  padding: 5px 6px;
   background: #f8fafc;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
   justify-content: space-between;
 }
 
 .reviewQueueItem:hover {
-  background: #e2e8f0;
+  background: #e8eef8;
   color: #1e3a8a;
 }
 
@@ -468,13 +595,22 @@
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-  position: relative;
-  top: 1px;
+}
+
+.reviewQueuePageLabel {
+  flex-shrink: 0;
+  font-size: 0.67rem;
+  font-weight: 700;
+  color: #94a3b8;
+  min-width: 26px;
 }
 
 .reviewQueueText {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .reviewQueueDeleteBtn {
@@ -506,47 +642,15 @@
 }
 
 .reviewQueueEmpty {
+  margin-top: 6px;
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   color: #94a3b8;
+  line-height: 1.5;
 }
 
-.highlightMenu {
-  position: fixed;
-  z-index: 70;
-  display: flex;
-  gap: 6px;
-  padding: 8px;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
-}
+/* ==================== Memo Modal ==================== */
 
-.highlightMenuBtn {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #334155;
-  font-size: 0.82rem;
-  font-weight: 600;
-  padding: 6px 10px;
-}
-
-.highlightMenuBtn:hover {
-  background: #f8fafc;
-}
-
-.highlightMenuBtnDanger {
-  color: #b91c1c;
-  border-color: #fecaca;
-}
-
-.highlightMenuBtnDanger:hover {
-  background: #fef2f2;
-}
-
-/* 메모 모달 */
 .memoModalOverlay {
   position: fixed;
   inset: 0;
@@ -584,6 +688,7 @@
   resize: vertical;
   font-family: inherit;
   color: #374151;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .memoModalTextarea:focus {
@@ -608,6 +713,7 @@
   background: #fff;
   color: #6b7280;
   cursor: pointer;
+  transition: background 0.15s;
 }
 
 .memoModalCancelBtn:hover {
@@ -623,6 +729,7 @@
   background: #1e3a8a;
   color: #fff;
   cursor: pointer;
+  transition: background 0.15s;
 }
 
 .memoModalSaveBtn:hover {
@@ -644,24 +751,22 @@
   .docUnitId {
     width: calc(100% - 170px);
     padding-inline: 20px;
-    gap: 28px;
   }
 
   .sourceText {
-    font-size: 1.2rem; /* 1.1~1.2x */
+    font-size: 1rem;
   }
 
   .translatedText {
-    font-size: 1.05rem;
+    font-size: 0.93rem;
   }
 
   .pageCard {
     height: 120px;
   }
-
 }
 
-/* ==================== Dark mode (contrast 유지) ==================== */
+/* ==================== Dark mode ==================== */
 @media (prefers-color-scheme: dark) {
   .container {
     background: #0b1220;
@@ -669,6 +774,14 @@
 
   .sidebar {
     background: #0f172a;
+  }
+
+  .sidebarTools {
+    border-top-color: #1e293b;
+  }
+
+  .sidebarDivider {
+    border-top-color: #1e293b;
   }
 
   .pagePreviewText {
@@ -688,17 +801,17 @@
   }
 
   .translatedText {
-    color: #9ca3af;
+    color: #94a3b8;
   }
 
-  .searchBar {
-    background: #0b1220;
+  .sidebarSearchBar {
+    background-color: #0b1220;
     border-color: rgba(148, 163, 184, 0.35);
     color: #e5e7eb;
   }
 
-  .searchBar::placeholder {
-    color: #9ca3af;
+  .sidebarSearchBar::placeholder {
+    color: #64748b;
   }
 
   .selectionModal {
@@ -713,5 +826,24 @@
   .highlight {
     background-color: rgba(59, 130, 246, 0.25);
     border-color: rgba(147, 197, 253, 0.35);
+  }
+
+  .reviewQueue {
+    background: #0f172a;
+    border-color: #1e293b;
+  }
+
+  .reviewQueueItem {
+    background: #1e293b;
+    color: #94a3b8;
+  }
+
+  .reviewQueueItem:hover {
+    background: #1e3a5f;
+    color: #93c5fd;
+  }
+
+  .docUnitWrapper {
+    border-bottom-color: #1e293b;
   }
 }
