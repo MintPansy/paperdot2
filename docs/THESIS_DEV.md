@@ -345,3 +345,36 @@
   - 검색 카운터 UI: 쿼리 없음→숨김 / 결과 없음→"결과 없음" / 미이동→"N개 — Enter로 이동" / 이동 중→"n / N" 으로 상태별 표시.
   - CSS: `.highlightActive`(주황 `rgba(251,146,60,0.8)` + 주황 border), `.searchCounter`(우측 정렬 소형 텍스트) 추가.
 
+---
+
+### 2026-03-31
+
+- **메모 툴팁 추가 (FE - ReadList.tsx + readList.module.css)**
+  - 메모 배지(`memoBadge`)에 `onMouseEnter/Leave` 핸들러 추가 → `tooltipDocUnitId` state로 hover 단락 추적.
+  - 메모 내용이 있을 때만 배지 아래에 말풍선 툴팁(`memoTooltip`) 조건부 렌더링.
+  - 툴팁: `position: absolute`, `pointer-events: none`, `max-width: 280px`, 화살표(CSS `::before`) 포함.
+  - 모바일은 `onMouseEnter`가 발생하지 않아 기존 tap→모달 방식과 충돌 없음.
+  - `memoBadgeWrapper`(relative container) 신규 추가, `memoBadge` hover 상태(`background: #e5e7eb`) 개선.
+
+- **하이라이트 hover/active 상태 개선 (FE - readList.module.css)**
+  - `.interactiveSentence:active` 추가: `rgba(30, 58, 138, 0.1)` (클릭 눌림 피드백).
+  - `.highlightedSentence` 클래스 신규 추가: 하이라이트된 `<p>` 태그에 조건부 적용.
+    - `:hover` → `box-shadow: inset 0 0 0 2px rgba(30,58,138,0.22)` (inline backgroundColor와 충돌 없음).
+    - `:active` → `filter: brightness(0.93)` + 더 진한 inset shadow.
+  - `.hasSavedHighlight:hover` 추가: 단락 wrapper 호버 시 배경/보더 강도 상승.
+
+- **메모 로컬 저장 기능 추가 (FE - ReadList.tsx)**
+  - `localMemoMap: Record<number, string[]>` state 추가, localStorage 키 `${namespace}:${documentId}:memos`로 영속.
+  - `handleSubmitMemo` 개선: auth 가드 제거 → 로컬 저장 즉시 실행 후 API는 auth 있을 때만 동기화.
+  - 배지 렌더링: 백엔드 메모 없으면 `localMemoMap`으로 fallback → 비로그인 상태에서도 📝 배지 즉시 표시.
+  - 로컬 메모(id < 0) 클릭 시 `noteId: undefined`로 모달 열어 다음 저장 시 API 생성 재시도.
+
+- **메모 팝업 버그 수정 (FE - ReadList.tsx)**
+  - `handleSaveMemo`: `!documentId || !accessToken` 가드가 모달 열기 전에 차단 → `docUnitId == null`만 확인하도록 수정.
+  - `handleSaveHighlight`: API 전용 로직 → 로컬 `highlightMap` 먼저 업데이트 후 API 옵션 호출로 변경. `sourceText.includes(text)`로 EN/KO lang 자동 판별.
+
+- **하이라이트 기본 색상 변경 (FE - ReadList.tsx + readList.module.css)**
+  - yellow(`#fff59d` / `rgba(250,204,21,0.35)`) → 연한 파랑(`#93c5fd` / `rgba(147,197,253,0.45)`)으로 교체.
+  - 색상 picker 툴팁 "노랑" → "파랑" 변경.
+  - `.hasSavedHighlight` 배경도 노란 계열 → 파란 계열(`rgba(147,197,253,0.1)`)로 통일.
+

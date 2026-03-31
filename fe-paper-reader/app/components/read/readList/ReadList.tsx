@@ -109,6 +109,11 @@ export default function ReadList({
 
   const [memoModal, setMemoModal] = useState<{ docUnitId: number; noteId?: number; initialContent?: string } | null>(null);
   const [memoContent, setMemoContent] = useState("");
+  const [tooltipDocUnitId, setTooltipDocUnitId] = useState<number | null>(null);
+  // 로컬 메모 저장 (docUnitId → content[])
+  const [localMemoMap, setLocalMemoMap] = useState<Record<number, string[]>>(() =>
+    getJSON<Record<number, string[]>>(`${storageNamespace}:${documentId ?? "local"}:memos`, {})
+  );
 
   const [selectedPageIndex, setSelectedPageIndex] = useState(0);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -157,7 +162,7 @@ export default function ReadList({
   const highlightColorToHex = useCallback((color: HighlightColor): string => {
     if (color === "pink") return "#f472b6";
     if (color === "green") return "#4ade80";
-    return "#fff59d";
+    return "#93c5fd"; // blue-300
   }, []);
 
   const handleCopySelection = useCallback(() => {
@@ -171,40 +176,61 @@ export default function ReadList({
   const handleSaveHighlight = useCallback(() => {
     const text = selectionModalTextRef.current;
     const docUnitId = selectionModal?.docUnitId;
-    if (!documentId || !accessToken || !text || docUnitId == null) return;
-    createNote(
-      documentId,
-      { docUnitId, noteType: "HIGHLIGHT", content: text, color: highlightColorToHex(highlightColor) },
-      accessToken
-    )
-      .then(() => {
-        refetchNotes();
-        setSelectionModal(null);
-      })
-      .catch(() => {});
-  }, [documentId, accessToken, refetchNotes, selectionModal?.docUnitId, highlightColor, highlightColorToHex]);
+    if (!text || docUnitId == null) return;
+
+    // lang 판별: sourceText에 포함되면 en, 아니면 ko
+    const item = data.find((d) => d.docUnitId === docUnitId);
+    const lang: "en" | "ko" = item?.sourceText.includes(text) ? "en" : "ko";
+    const key = `${docUnitId}:${lang}`;
+
+    // 로컬 저장 (auth 무관하게 즉시 반영)
+    setHighlightMap((prev) => ({ ...prev, [key]: { color: highlightColor, text } }));
+    setSelectionModal(null);
+
+    // API 저장 (auth 있을 때만)
+    if (documentId && accessToken) {
+      createNote(
+        documentId,
+        { docUnitId, noteType: "HIGHLIGHT", content: text, color: highlightColorToHex(highlightColor) },
+        accessToken
+      )
+        .then(() => refetchNotes())
+        .catch(() => {});
+    }
+  }, [documentId, accessToken, refetchNotes, selectionModal?.docUnitId, highlightColor, highlightColorToHex, data]);
 
   const handleSaveMemo = useCallback(() => {
     const docUnitId = selectionModal?.docUnitId;
-    if (!documentId || !accessToken || docUnitId == null) return;
+    if (docUnitId == null) return;
     setMemoContent("");
     setMemoModal({ docUnitId });
     setSelectionModal(null);
-  }, [documentId, accessToken, selectionModal?.docUnitId]);
+  }, [selectionModal?.docUnitId]);
 
   const handleSubmitMemo = useCallback(() => {
-    if (!memoModal || !documentId || !accessToken) return;
-    const content = memoContent.trim() || null;
-    const action = memoModal.noteId != null
-      ? updateNote(documentId, memoModal.noteId, { content }, accessToken)
-      : createNote(documentId, { docUnitId: memoModal.docUnitId, noteType: "MEMO", content }, accessToken);
-    action
-      .then(() => {
-        refetchNotes();
-        setMemoModal(null);
-        setMemoContent("");
-      })
-      .catch(() => {});
+    if (!memoModal) return;
+    const content = memoContent.trim();
+
+    // 로컬 저장 (즉시 반영)
+    setLocalMemoMap((prev) => {
+      if (!content) {
+        const next = { ...prev };
+        delete next[memoModal.docUnitId];
+        return next;
+      }
+      return { ...prev, [memoModal.docUnitId]: [content] };
+    });
+    setMemoModal(null);
+    setMemoContent("");
+
+    // API 동기화 (auth 있을 때만)
+    if (documentId && accessToken) {
+      const apiContent = content || null;
+      const action = memoModal.noteId != null
+        ? updateNote(documentId, memoModal.noteId, { content: apiContent }, accessToken)
+        : createNote(documentId, { docUnitId: memoModal.docUnitId, noteType: "MEMO", content: apiContent }, accessToken);
+      action.then(() => refetchNotes()).catch(() => {});
+    }
   }, [memoModal, documentId, accessToken, memoContent, refetchNotes]);
 
   const closeMemoModal = useCallback(() => {
@@ -270,6 +296,10 @@ export default function ReadList({
   useEffect(() => {
     setJSON(`${storageNamespace}:${documentId ?? 'local'}:highlights`, highlightMap);
   }, [highlightMap, storageNamespace, documentId]);
+
+  useEffect(() => {
+    setJSON(`${storageNamespace}:${documentId ?? 'local'}:memos`, localMemoMap);
+  }, [localMemoMap, storageNamespace, documentId]);
 
   // DB HIGHLIGHT 노트 → highlightMap 동기화 (다른 기기/캐시 초기화 대응)
   useEffect(() => {
@@ -432,7 +462,7 @@ export default function ReadList({
   const highlightColorToStyle = useCallback((color: HighlightColor): string => {
     if (color === "pink") return "rgba(244, 114, 182, 0.25)";
     if (color === "green") return "rgba(74, 222, 128, 0.35)";
-    return "rgba(250, 204, 21, 0.35)";
+    return "rgba(147, 197, 253, 0.45)"; // blue-300 (연한 파랑)
   }, []);
 
   const applyHighlight = useCallback(
@@ -713,7 +743,7 @@ export default function ReadList({
                   }`}
                   style={{ background: highlightColorToStyle(c) }}
                   onClick={() => setHighlightColor(c)}
-                  title={c === "yellow" ? "노랑" : c === "green" ? "초록" : "분홍"}
+                  title={c === "yellow" ? "파랑" : c === "green" ? "초록" : "분홍"}
                   aria-pressed={highlightColor === c}
                 />
               ))}
@@ -809,7 +839,19 @@ export default function ReadList({
           {data.map((item, index) => {
             const unitNotes = notesByDocUnitId.get(item.docUnitId) ?? [];
             const hasHighlight = unitNotes.some((n) => n.noteType === "HIGHLIGHT");
-            const memos = unitNotes.filter((n) => n.noteType === "MEMO");
+            const backendMemos = unitNotes.filter((n) => n.noteType === "MEMO");
+            // 백엔드 메모 없을 때 로컬 메모로 fallback
+            const localMemoContents = localMemoMap[item.docUnitId] ?? [];
+            const memos = backendMemos.length > 0
+              ? backendMemos
+              : localMemoContents.map((content, i) => ({
+                  id: -(item.docUnitId * 1000 + i),
+                  docUnitId: item.docUnitId,
+                  noteType: "MEMO" as const,
+                  content,
+                  color: null,
+                  createdAt: "",
+                }));
             const isSearchActive = searchMatchIdx >= 0 && searchMatchItems[searchMatchIdx] === index;
             return (
             <div
@@ -822,23 +864,41 @@ export default function ReadList({
                 hasHighlight ? styles.hasSavedHighlight : "",
               ].filter(Boolean).join(" ")}>
               {memos.length > 0 && (
-                <div
-                  className={styles.memoBadge}
-                  title="클릭하면 메모를 수정할 수 있습니다"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => {
-                    const memo = memos[0];
-                    setMemoContent(memo.content ?? "");
-                    setMemoModal({ docUnitId: item.docUnitId, noteId: memo.id, initialContent: memo.content ?? "" });
-                  }}
-                >
-                  📝 {memos.length}
+                <div className={styles.memoBadgeWrapper}>
+                  <div
+                    className={styles.memoBadge}
+                    title="클릭하면 메모를 수정할 수 있습니다"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => {
+                      const memo = memos[0];
+                      const isLocal = memo.id < 0;
+                      setMemoContent(memo.content ?? "");
+                      setMemoModal({
+                        docUnitId: item.docUnitId,
+                        noteId: isLocal ? undefined : memo.id,
+                        initialContent: memo.content ?? "",
+                      });
+                    }}
+                    onMouseEnter={() => setTooltipDocUnitId(item.docUnitId)}
+                    onMouseLeave={() => setTooltipDocUnitId(null)}
+                  >
+                    📝 {memos.length}
+                  </div>
+                  {tooltipDocUnitId === item.docUnitId && memos[0].content && (
+                    <div className={styles.memoTooltip} role="tooltip">
+                      {memos[0].content}
+                    </div>
+                  )}
                 </div>
               )}
               {filterMode === "all" && (
                 <>
                   <p
-                    className={`${styles.sourceText} ${styles.interactiveSentence}`}
+                    className={[
+                      styles.sourceText,
+                      styles.interactiveSentence,
+                      highlightMap[sentenceKeyOf(item.docUnitId, "en")] ? styles.highlightedSentence : "",
+                    ].filter(Boolean).join(" ")}
                     onClick={() => handleSentenceClick(sentenceKeyOf(item.docUnitId, "en"), item.sourceText)}
                     onContextMenu={(e) =>
                       handleSentenceContextMenu(
@@ -862,7 +922,11 @@ export default function ReadList({
                       : item.sourceText}
                   </p>
                   <p
-                    className={`${styles.translatedText} ${styles.interactiveSentence}`}
+                    className={[
+                      styles.translatedText,
+                      styles.interactiveSentence,
+                      highlightMap[sentenceKeyOf(item.docUnitId, "ko")] ? styles.highlightedSentence : "",
+                    ].filter(Boolean).join(" ")}
                     onClick={() =>
                       handleSentenceClick(
                         sentenceKeyOf(item.docUnitId, "ko"),
@@ -894,7 +958,11 @@ export default function ReadList({
               )}
               {filterMode === "english" && (
                 <p
-                  className={`${styles.sourceText} ${styles.interactiveSentence}`}
+                  className={[
+                    styles.sourceText,
+                    styles.interactiveSentence,
+                    highlightMap[sentenceKeyOf(item.docUnitId, "en")] ? styles.highlightedSentence : "",
+                  ].filter(Boolean).join(" ")}
                   onClick={() => handleSentenceClick(sentenceKeyOf(item.docUnitId, "en"), item.sourceText)}
                   onContextMenu={(e) =>
                     handleSentenceContextMenu(
@@ -920,7 +988,11 @@ export default function ReadList({
               )}
               {filterMode === "korean" && (
                 <p
-                  className={`${styles.translatedText} ${styles.interactiveSentence}`}
+                  className={[
+                    styles.translatedText,
+                    styles.interactiveSentence,
+                    highlightMap[sentenceKeyOf(item.docUnitId, "ko")] ? styles.highlightedSentence : "",
+                  ].filter(Boolean).join(" ")}
                   onClick={() =>
                     handleSentenceClick(sentenceKeyOf(item.docUnitId, "ko"), item.translatedText)
                   }
