@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
 import Sidebar from "@/app/mypage/sidebar/page";
@@ -16,10 +16,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const protectedRoutes =
     pathname.includes("/mypage") || pathname.includes("/read");
 
+  const hasShownAuthToast = useRef(false);
+  useEffect(() => {
+    if (!protectedRoutes || userInfo) {
+      hasShownAuthToast.current = false;
+      return;
+    }
+
+    if (!hasShownAuthToast.current) {
+      toast.error("로그인 상태가 아닙니다. 다시 로그인해주세요.");
+      hasShownAuthToast.current = true;
+    }
+    router.replace("/login");
+  }, [protectedRoutes, userInfo, router]);
+
   if (protectedRoutes && !userInfo) {
-    toast.error("로그인 상태가 아닙니다. 다시 로그인해주세요.");
-    router.push("/login");
-    return <ToastContainer autoClose={1000} />;
+    return <ToastContainer position="top-center" autoClose={1000} />;
   }
 
   const isMypage =
