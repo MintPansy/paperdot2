@@ -406,3 +406,28 @@
   - `?inline=false`: `Content-Disposition: attachment` → 파일 다운로드.
   - 기존 `DocumentDownloadService`를 재사용해 스토리지(LOCAL/S3/NCLOUD) 무관하게 동작.
   - `InputStreamResource`로 스트리밍 응답, `Content-Type: application/pdf` 설정.
+
+- **파일 메타데이터 스키마 확장 (BE - DocumentFile.java / DocumentFileService.java)**
+  - 파일 엔티티 컬럼을 운영 요구사항에 맞게 확장: `original_name`, `stored_name`, `file_path`, `uploaded_at`.
+  - 업로드 시 원본 파일명과 저장 파일명을 분리 저장하도록 변경.
+  - 저장 파일명은 UUID 기반으로 생성해 중복 업로드 충돌을 방지.
+  - 기존 응답/서비스 호환을 위해 `getOriginalFilename()`, `getStoragePath()` 호환 getter 유지.
+
+- **파일 ID 기반 다운로드 API 추가 (BE - DocumentController.java / DocumentDownloadService.java)**
+  - `GET /documents/files/{fileId}` 신규 추가.
+  - fileId 기준으로 DB 메타데이터를 조회한 뒤 PDF를 반환.
+  - `inline/attachment`를 모두 지원하고 UTF-8 파일명(`filename*`)으로 내려주도록 처리.
+
+- **배포 환경 변수 정리 (Vercel + Railway)**
+  - Vercel 변수(`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_BASE_URL`, OAuth redirect URI들)와 Railway 변수(`PAPERDOT_FRONTEND_BASE_URL`, `SPRING_DATASOURCE_*`, `KAKAO_*`, `JWT_SECRET`, `UPLOAD_DIR`)를 실서비스 도메인 기준으로 정리.
+  - 운영 도메인 기준: FE `https://scholardot.vercel.app`, BE `https://scholardot-production.up.railway.app`.
+  - Kakao Redirect URI는 프론트가 아니라 백엔드 콜백(`.../login/oauth2/code/kakao`)으로 맞추는 규칙을 확정.
+
+- **카카오 로그인 운영 점검**
+  - 구조 점검 결과: 카카오 로그인은 FE 버튼이 BE OAuth 엔드포인트로 이동하는 방식이므로 백엔드 공개 HTTPS 배포가 필수.
+  - CORS/리다이렉트 기준이 `paperdot.frontend.base-url` 단일 값이므로, 운영 시 `PAPERDOT_FRONTEND_BASE_URL=https://scholardot.vercel.app`로 고정.
+
+- **Vercel 빌드 경고 수정 (`ReferenceError: location is not defined`)**
+  - 원인: `Layout.tsx` 렌더 단계에서 `toast.error`/`router.push`를 즉시 호출해 SSR/SSG 중 브라우저 전역 참조가 발생.
+  - 조치: 인증 리다이렉트 로직을 `useEffect`로 이동하고 중복 토스트를 ref로 제어.
+  - 결과: 로컬 `pnpm build` 재검증에서 `location is not defined` 경고 없이 빌드 완료.
