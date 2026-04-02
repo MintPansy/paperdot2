@@ -195,9 +195,7 @@ export default function ReadList({
     [dataToPage]
   );
 
-  const showPdfThumbnails = Boolean(
-    pdfDataUrl.current && pageLayout.kind === "pdf"
-  );
+  const showPdfThumbnails = Boolean(pdfDataUrl.current);
 
   const contentScrollRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);

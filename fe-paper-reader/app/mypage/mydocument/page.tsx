@@ -4,7 +4,7 @@ import { DocumentListItem, getDocumentList } from "@/app/api/document";
 import Button from "@/app/components/button/Button";
 import { getApiUrl } from "@/app/config/env";
 import styles from "@/app/mypage/mydocument/document.module.css";
-import { useLoginStore } from "@/app/store/useLogin";
+import { useAccessTokenStore, useLoginStore } from "@/app/store/useLogin";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -16,6 +16,9 @@ export default function MyDocument() {
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
   const userData = useLoginStore((state) => state.userInfo);
+  const accessToken = useAccessTokenStore((s) => s.accessToken);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const handleContinueReading = () => {
     router.push(`/read`);
@@ -35,14 +38,53 @@ export default function MyDocument() {
       }));
       setDocuments(newDocs);
       setSelectedDocumentId((prev) => {
-        if (prev && newDocs.some((doc) => doc.documentId === prev)) {
-          return prev;
-        }
+        if (prev && newDocs.some((doc) => doc.documentId === prev)) return prev;
         return newDocs.length > 0 ? newDocs[0].documentId : null;
       });
     };
     fetchDocuments();
   }, [userData?.userId]);
+
+  // 선택된 문서 PDF를 blob URL로 fetch (Bearer 토큰 포함)
+  useEffect(() => {
+    if (!selectedDocumentId) {
+      setPdfBlobUrl(null);
+      return;
+    }
+
+    let active = true;
+    let objectUrl: string | null = null;
+    setPdfLoading(true);
+    setPdfBlobUrl(null);
+
+    const headers: HeadersInit = {};
+    if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+
+    fetch(`${API_BASE_URL}/documents/${selectedDocumentId}/file?inline=true`, {
+      headers,
+      credentials: "include",
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("PDF 로드 실패");
+        return res.blob();
+      })
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPdfBlobUrl(objectUrl);
+      })
+      .catch(() => {
+        if (active) setPdfBlobUrl(null);
+      })
+      .finally(() => {
+        if (active) setPdfLoading(false);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [selectedDocumentId, accessToken]);
 
   const handleStartNewDocument = () => {
     router.push("/newdocument");
@@ -52,9 +94,6 @@ export default function MyDocument() {
   const selectedDocument = documents.find(
     (doc) => doc.documentId === selectedDocumentId
   );
-  const selectedPdfUrl = selectedDocument
-    ? `${API_BASE_URL}/documents/${selectedDocument.documentId}/file?inline=true`
-    : "";
 
   return (
     <main className={styles.container}>
@@ -141,14 +180,19 @@ export default function MyDocument() {
             </aside>
 
             <div className={styles.pdfViewerCard}>
-              {selectedDocument ? (
+              {pdfLoading ? (
+                <div className={styles.pdfEmptyState}>PDF 불러오는 중...</div>
+              ) : pdfBlobUrl ? (
                 <iframe
-                  title={`${selectedDocument.title} PDF`}
-                  src={selectedPdfUrl}
+                  key={selectedDocumentId}
+                  title={selectedDocument?.title ?? "PDF"}
+                  src={pdfBlobUrl}
                   className={styles.pdfIframe}
                 />
               ) : (
-                <div className={styles.pdfEmptyState}>문서를 선택해주세요</div>
+                <div className={styles.pdfEmptyState}>
+                  {selectedDocument ? "PDF를 불러올 수 없습니다." : "문서를 선택해주세요"}
+                </div>
               )}
             </div>
           </section>
