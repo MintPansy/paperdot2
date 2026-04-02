@@ -35,7 +35,7 @@ public class DocumentFile {
     @Column(nullable = false)
     private StorageProvider storageProvider;
 
-    @Column(name = "original_name", nullable = false)
+    @Column(name = "original_filename", nullable = false)
     private String originalName;
 
     @Column(name = "stored_name", nullable = false)
