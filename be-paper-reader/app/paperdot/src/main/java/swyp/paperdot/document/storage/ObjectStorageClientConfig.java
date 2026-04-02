@@ -21,13 +21,14 @@ public class ObjectStorageClientConfig {
 
     @Bean
     public ObjectStorageClient objectStorageClient() {
-        String accessKeyId = getenv("AWS_ACCESS_KEY_ID");
-        String secretAccessKey = getenv("AWS_SECRET_ACCESS_KEY");
-        String region = getenv("AWS_REGION");
-        String bucket = getenv("AWS_S3_BUCKET");
-        String endpoint = getenv("AWS_S3_ENDPOINT"); // 선택 (MinIO/S3-compatible)
+        // AWS_* 우선, 없으면 NCP_* fallback (NCP Object Storage는 S3 호환)
+        String accessKeyId = getenvOrDefault("AWS_ACCESS_KEY_ID", getenv("NCP_ACCESS_KEY"));
+        String secretAccessKey = getenvOrDefault("AWS_SECRET_ACCESS_KEY", getenv("NCP_SECRET_KEY"));
+        String region = getenvOrDefault("AWS_REGION", getenv("NCP_REGION"));
+        String bucket = getenvOrDefault("AWS_S3_BUCKET", getenv("NCP_BUCKET"));
+        String endpoint = getenvOrDefault("AWS_S3_ENDPOINT", getenv("NCP_ENDPOINT"));
 
-        // AWS 정보가 하나라도 비어있으면 로컬 폴더로 fallback
+        // 자격증명 정보가 하나라도 비어있으면 로컬 폴더로 fallback
         boolean hasAwsCredentials =
                 notBlank(accessKeyId) &&
                 notBlank(secretAccessKey) &&

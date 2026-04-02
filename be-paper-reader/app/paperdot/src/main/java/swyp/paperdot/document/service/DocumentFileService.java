@@ -42,7 +42,8 @@ public class DocumentFileService {
 
         try {
             objectStorageClient.upload(key, file, contentType);
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            // AWS SDK v2는 SdkException(RuntimeException)을 던지므로 함께 처리
             throw new StorageUploadException("Failed to upload file to object storage", e);
         }
 
