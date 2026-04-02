@@ -15,11 +15,16 @@ export default function MyAccount() {
   const setUserInfoState = useLoginStore((state) => state.setUserInfo);
   const accessToken = useAccessTokenStore((state) => state.accessToken);
   const setAccessToken = useAccessTokenStore((state) => state.setAccessToken);
-  const isGoogleUser = userInfo?.email?.includes("gmail.com");
-  const loginProviderText = isGoogleUser
-    ? "구글 연동 로그인"
-    : "카카오톡 연동 로그인";
-  const profileSubInfo = `${isGoogleUser ? "구글 로그인" : "카카오 로그인"} · 최근 활동 없음`;
+  const hasEmail = !!userInfo?.email;
+  const isGoogleUser = hasEmail && userInfo?.email?.includes("gmail.com");
+  const loginProviderText = !hasEmail
+    ? "소셜 로그인"
+    : isGoogleUser
+      ? "구글 연동 로그인"
+      : "카카오톡 연동 로그인";
+  const profileSubInfo = `${
+    !hasEmail ? "소셜 로그인" : isGoogleUser ? "구글 로그인" : "카카오 로그인"
+  } · 최근 활동 없음`;
 
   const handleLogoutClick = async () => {
     try {
@@ -71,7 +76,6 @@ export default function MyAccount() {
             <h2 className={styles.accountProfileNameSmall}>
               {userInfo?.nickname || "김유저"}
             </h2>
-            <p className={styles.profileEmail}>{userInfo?.email || "-"}</p>
             <p className={styles.profileSubInfo}>{profileSubInfo}</p>
           </div>
         </div>
@@ -88,10 +92,6 @@ export default function MyAccount() {
           <div className={styles.infoItem}>
             <p className={styles.accountFormLabel}>이름</p>
             <p className={styles.infoValue}>{userInfo?.nickname || "김유저"}</p>
-          </div>
-          <div className={styles.infoItem}>
-            <p className={styles.accountFormLabel}>이메일</p>
-            <p className={styles.infoValue}>{userInfo?.email || "-"}</p>
           </div>
           <div className={styles.infoItem}>
             <p className={styles.accountFormLabel}>소셜 로그인</p>

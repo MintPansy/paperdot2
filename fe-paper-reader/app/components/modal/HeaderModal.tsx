@@ -91,9 +91,6 @@ export default function HeaderModal({
             <p className={styles.headerModalName}>
               {userInfo?.nickname || "김유저"}
             </p>
-            <p className={styles.headerModalEmail}>
-              {userInfo?.email || "-"}
-            </p>
           </div>
           <div className={styles.headerMiddleTitleContainer}>
             <Link

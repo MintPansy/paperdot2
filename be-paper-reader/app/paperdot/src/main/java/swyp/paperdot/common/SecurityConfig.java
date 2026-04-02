@@ -98,12 +98,22 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
+                    String requestUri = request.getRequestURI();
+
                     // CORS preflight(OPTIONS)는 redirect되면 브라우저에서 차단됩니다.
-                    // 여기서는 OPTIONS에 대해서는 redirect 대신 성공 응답만 내려서 CORS가 통과되게 합니다.
                     if (HttpMethod.OPTIONS.matches(request.getMethod())) {
                         response.setStatus(HttpServletResponse.SC_OK);
                         return;
                     }
+
+                    // API성 요청은 /login redirect 대신 401로 반환해 fetch 리다이렉트/루프를 방지합니다.
+                    if (requestUri != null && requestUri.startsWith("/documents")) {
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json;charset=UTF-8");
+                        response.getWriter().write("{\"message\":\"Unauthorized\"}");
+                        return;
+                    }
+
                     response.sendRedirect("/login");
                 }))
                 .oauth2Login(oauth -> oauth
