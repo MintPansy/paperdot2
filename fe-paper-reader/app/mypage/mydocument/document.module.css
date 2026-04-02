@@ -2,15 +2,17 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  padding: 60px 36px 60px 20px;
+  padding: 28px 32px 32px 20px;
   min-height: calc(100vh - 60px);
+  gap: 14px;
+  background: #f8fafc;
 }
 
 .emptyStateSection {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
 }
 
 .recentDocumentsTitle {
@@ -19,16 +21,18 @@
   font-weight: 600;
   line-height: 150%;
   letter-spacing: -0.48px;
+  margin: 0;
 }
 
 .emptyStateSubMessage {
-  color: #737a82;
+  color: #7c8795;
   text-align: center;
-  font-size: 1.125rem;
+  font-size: 0.98rem;
   font-weight: 400;
   line-height: 150%;
-  letter-spacing: -0.36px;
-  padding: 88px 0;
+  letter-spacing: -0.2px;
+  padding: 0;
+  margin: 0;
 }
 
 .recentDocumentPrompt {
@@ -52,11 +56,11 @@
 .documentInfo {
   display: flex;
   flex-direction: column;
-  margin-bottom: 60px;
+  margin-bottom: 8px;
   border-radius: 12px;
   border: 2px solid #e3edff;
   background: #edf3ff;
-  padding: 32px;
+  padding: 24px;
 }
 
 .documentInfoProgressContainer {
@@ -128,44 +132,49 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  margin-top: 20px;
-}
-
-.emptyStatePrompt {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  margin-bottom: 40px;
+  margin-top: 8px;
 }
 
 .emptyStatePromptTitle {
-  color: #21232a;
-  font-size: 1.5rem;
+  color: #0f172a;
+  font-size: 1.25rem;
   font-weight: 600;
-  line-height: 150%;
-  letter-spacing: -0.48px;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+  margin: 0;
 }
 
-.emptyStatePromptBox {
-  background-color: #f0f4fd;
-  border-radius: 12px;
-  padding: 32px 40px;
+.emptyStatePromptCard {
+  background-color: #ffffff;
+  border: 1px solid #e6ecf4;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.04);
+  padding: 24px 26px;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.emptyStatePromptIconWrap {
+  display: inline-flex;
   align-items: center;
-  text-align: center;
-  gap: 20px;
-  min-height: 200px;
   justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
 }
 
 .emptyStatePromptText {
-  color: #737a82;
-  text-align: center;
-  font-size: 1.125rem;
+  color: #64748b;
+  text-align: left;
+  font-size: 0.95rem;
   font-weight: 400;
-  line-height: 150%;
-  letter-spacing: -0.36px;
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+  margin: 0;
 }
 
 .emptyStatePromptButton {
@@ -177,20 +186,55 @@
   letter-spacing: -0.32px;
   cursor: pointer;
   display: flex;
-  height: 48px;
-  padding: 12px 32px;
+  height: 46px;
+  padding: 10px 24px;
   justify-content: center;
   align-items: center;
   flex-shrink: 0;
   border-radius: 8px;
-  background: #4787ff;
+  background: #3b82f6;
   border: none;
   cursor: pointer;
-  transition: background-color 300ms;
+  transition: all 220ms;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+}
+
+.emptyStatePromptButton:hover {
+  background: #1d4ed8;
+  box-shadow: 0 6px 14px rgba(29, 78, 216, 0.25);
+}
+
+.recentSectionCard {
+  background: #ffffff;
+  border: 1px solid #e6ecf4;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.04);
+  padding: 18px 22px;
+}
+
+.recentEmptyCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed #d9e2ef;
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 28px 20px;
+  margin-top: 8px;
+}
+
+.emptyStateSubDescription {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .documentsTable {
   width: 100%;
+  border-collapse: collapse;
 }
 
 .tableHeader {
@@ -299,8 +343,8 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  margin-top: 24px;
-  padding: 16px 0;
+  margin-top: 12px;
+  padding: 10px 0 2px;
 }
 
 .paginationPages {

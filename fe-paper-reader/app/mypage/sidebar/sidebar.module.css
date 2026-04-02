@@ -38,15 +38,18 @@
   cursor: pointer;
   transition: all 300ms;
   text-decoration: none;
-  padding: 12px 8px;
+  padding: 12px 10px;
   gap: 12px;
+  border-left: 3px solid transparent;
 }
 
 .tabButtonActive {
   border-radius: 8px;
-  background: var(--pd-cream-bg, #fefdf3);
+  background: #f8faff;
   color: var(--pd-navy, #1e3a8a);
   font-weight: 600;
+  border-left-color: #3b82f6;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.14);
 }
 
 .tabButtonInactive {
@@ -54,7 +57,7 @@
 }
 
 .tabButtonInactive:hover {
-  background-color: #f3f4f6;
+  background-color: #eef2f7;
   color: var(--pd-text, #111827);
 }
 

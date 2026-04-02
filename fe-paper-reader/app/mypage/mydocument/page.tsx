@@ -56,27 +56,33 @@ export default function MyDocument() {
     <main className={styles.container}>
       {documents.length === 0 ? (
         <section className={styles.emptyStateSection}>
-          <div className={styles.emptyStatePrompt}>
-            <p className={styles.emptyStatePromptTitle}>
-              읽은 문서가 생기면 이곳에 자동으로 모여요.
-            </p>
-            <div className={styles.emptyStatePromptBox}>
-              <p className={styles.emptyStatePromptText}>
-                업로드 된 파일이 없습니다.
-                <br />
-                텍스트 또는 파일을 번역하고 관리해보세요
-              </p>
-              <button className={styles.emptyStatePromptButton}>
-                지금 시작하기
-              </button>
+          <div className={styles.emptyStatePromptCard}>
+            <div className={styles.emptyStatePromptIconWrap}>
+              <Image src="/pdfLogo.svg" alt="pdf" width={28} height={28} />
             </div>
+            <p className={styles.emptyStatePromptTitle}>
+              논문 학습을 시작하려면 첫 PDF를 업로드해보세요
+            </p>
+            <p className={styles.emptyStatePromptText}>
+              ScholarDot은 영어 논문을 문장 단위로 읽고, 번역과 복습 흐름까지
+              이어서 학습할 수 있도록 도와줍니다.
+            </p>
+            <button
+              className={styles.emptyStatePromptButton}
+              onClick={handleStartNewDocument}>
+              첫 논문 업로드하기
+            </button>
           </div>
 
-          <div className={styles.emptyStateSection}>
-            <h2 className={styles.recentDocumentsTitle}>최근 읽은 문서</h2>
-            <p className={styles.emptyStateSubMessage}>
-              최근 읽은 문서가 없습니다.
-            </p>
+          <div className={styles.recentSectionCard}>
+            <h2 className={styles.recentDocumentsTitle}>최근 학습한 문서</h2>
+            <div className={styles.recentEmptyCard}>
+              <Image src="/smallPdfIcon.svg" alt="no-document" width={24} height={24} />
+              <p className={styles.emptyStateSubMessage}>최근 읽은 문서가 없습니다.</p>
+              <p className={styles.emptyStateSubDescription}>
+                문서를 업로드하면 최근 학습 기록이 자동으로 쌓입니다.
+              </p>
+            </div>
           </div>
         </section>
       ) : (
@@ -106,8 +112,9 @@ export default function MyDocument() {
             </div>
           </div>
 
-          <h2 className={styles.recentDocumentsTitle}>최근 읽은 문서</h2>
-          <div className={styles.documentTableWrapper}>
+          <section className={styles.recentSectionCard}>
+            <h2 className={styles.recentDocumentsTitle}>최근 학습한 문서</h2>
+            <div className={styles.documentTableWrapper}>
             <table className={styles.documentsTable}>
               <thead className={styles.tableHeader}>
                 <tr>
@@ -168,7 +175,8 @@ export default function MyDocument() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </section>
           {totalPages > 1 && (
             <div className={styles.pagination}>
               <button

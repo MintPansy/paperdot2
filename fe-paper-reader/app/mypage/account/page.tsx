@@ -15,6 +15,11 @@ export default function MyAccount() {
   const setUserInfoState = useLoginStore((state) => state.setUserInfo);
   const accessToken = useAccessTokenStore((state) => state.accessToken);
   const setAccessToken = useAccessTokenStore((state) => state.setAccessToken);
+  const isGoogleUser = userInfo?.email?.includes("gmail.com");
+  const loginProviderText = isGoogleUser
+    ? "구글 연동 로그인"
+    : "카카오톡 연동 로그인";
+  const profileSubInfo = `${isGoogleUser ? "구글 로그인" : "카카오 로그인"} · 최근 활동 없음`;
 
   const handleLogoutClick = async () => {
     try {
@@ -39,8 +44,8 @@ export default function MyAccount() {
 
   return (
     <main className={styles.accountSection}>
-      <section className={styles.accountTopBar}>
-        <div className={styles.accountProfileBar}>
+      <section className={styles.profileSummaryCard}>
+        <div className={styles.profileSummaryLeft}>
           <div className={styles.accountProfileImageSmallContainer}>
             {userInfo?.profileImageUrl?.includes("http") ? (
               <Image
@@ -61,9 +66,14 @@ export default function MyAccount() {
               />
             )}
           </div>
-          <h2 className={styles.accountProfileNameSmall}>
-            {userInfo?.nickname || "김유저"}
-          </h2>
+          <div className={styles.profileSummaryText}>
+            <p className={styles.profileEyebrow}>내 계정</p>
+            <h2 className={styles.accountProfileNameSmall}>
+              {userInfo?.nickname || "김유저"}
+            </h2>
+            <p className={styles.profileEmail}>{userInfo?.email || "-"}</p>
+            <p className={styles.profileSubInfo}>{profileSubInfo}</p>
+          </div>
         </div>
         <Button
           className={styles.accountLogoutBtnTop}
@@ -72,46 +82,42 @@ export default function MyAccount() {
         </Button>
       </section>
 
-      <div className={styles.accountFormSection}>
-        <div className={styles.accountFormRow}>
-          <p className={styles.accountFormLabel}>소셜 로그인</p>
-          <div className={styles.accountSocialLoginRight}>
-            <Image
-              src={
-                userInfo?.email?.includes("gmail")
-                  ? "/googleLogo.svg"
-                  : "/kakaoIcon.svg"
-              }
-              alt={userInfo?.email?.includes("gmail") ? "google" : "kakao"}
-              width={24}
-              height={24}
-              className={
-                userInfo?.email?.includes("gmail") ? styles.googleLogo : ""
-              }
-            />
-            <p className={styles.accountSocialLoginText}>
-              {userInfo?.email?.includes("gmail.com")
-                ? "구글 연동 로그인"
-                : "카카오톡 연동 로그인"}
-            </p>
+      <section className={styles.infoCard}>
+        <h3 className={styles.cardTitle}>계정 정보</h3>
+        <div className={styles.infoList}>
+          <div className={styles.infoItem}>
+            <p className={styles.accountFormLabel}>이름</p>
+            <p className={styles.infoValue}>{userInfo?.nickname || "김유저"}</p>
+          </div>
+          <div className={styles.infoItem}>
+            <p className={styles.accountFormLabel}>이메일</p>
+            <p className={styles.infoValue}>{userInfo?.email || "-"}</p>
+          </div>
+          <div className={styles.infoItem}>
+            <p className={styles.accountFormLabel}>소셜 로그인</p>
+            <div className={styles.accountSocialLoginRight}>
+              <Image
+                src={isGoogleUser ? "/googleLogo.svg" : "/kakaoIcon.svg"}
+                alt={isGoogleUser ? "google" : "kakao"}
+                width={20}
+                height={20}
+                className={isGoogleUser ? styles.googleLogo : ""}
+              />
+              <p className={styles.accountSocialLoginText}>{loginProviderText}</p>
+            </div>
           </div>
         </div>
+      </section>
 
-        <div className={styles.accountFormRow}>
-          <p className={styles.accountFormLabel}>이름</p>
-          <div className={styles.accountInputContainer}>
-            <p className={styles.accountInputText}>
-              {userInfo?.nickname || "김유저"}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <section className={styles.accountManagementSection}>
+      <section className={styles.dangerCard}>
+        <h3 className={styles.dangerTitle}>위험 영역</h3>
+        <p className={styles.dangerDescription}>
+          계정 삭제 시 번역 기록과 계정 정보가 모두 삭제되며 복구할 수 없습니다.
+        </p>
         <Button
           onClick={() => setShowDeleteModal(true)}
-          className={styles.deleteAccountLink}>
-          <p className={styles.deleteAccountLinkText}>탈퇴하기</p>
+          className={styles.deleteAccountButton}>
+          회원 탈퇴
         </Button>
       </section>
       {showDeleteModal && (
