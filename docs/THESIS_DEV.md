@@ -548,3 +548,83 @@
 - **결과**
   - 문서함에서 좌측 항목 클릭 시 우측 PDF가 즉시 표시되는 구조를 완성.
   - 과도한 인터랙션 없이도 완성도 있는 ScholarDot 스타일 UI 데모가 가능한 상태로 정리.
+
+---
+
+### 2026-04-03 — 프로젝트 최종 완성 🎓
+
+> **ScholarDot 1인 풀스택 졸업 프로젝트 개발 완료.**  
+> 2025년 말부터 시작한 설계·구현·배포 사이클을 오늘자로 마무리한다.
+
+---
+
+#### 오늘 마지막으로 완료한 작업
+
+- **읽기 화면 사이드바 PDF 썸네일 표시 수정 (FE - ReadList.tsx)**
+  - `showPdfThumbnails` 조건에서 `pageLayout.kind === "pdf"` 의존을 제거.
+  - 기존 조건: `pdfDataUrl.current && pageLayout.kind === "pdf"` → 백엔드가 `sourcePage`를 미반환하면 thumbnails 미표시.
+  - 변경 조건: `Boolean(pdfDataUrl.current)` → PDF 데이터가 있으면 무조건 실제 PDF 페이지 이미지를 사이드바에 렌더링.
+  - 썸네일 클릭 시 해당 PDF 페이지의 첫 번째 문장으로 smooth scroll 이동하는 기존 `scrollToPage` 로직은 그대로 유지.
+
+- **문서함 PDF 즉시 표시 구조 완성 (FE - mydocument/page.tsx)**
+  - 기존: `<iframe src="${API_BASE_URL}/documents/${id}/file">` 방식 → Bearer 토큰 전송 불가로 인증 실패, PDF 미표시.
+  - 변경: `fetch(url, { Authorization: Bearer ... })` → `res.blob()` → `URL.createObjectURL()` → blob URL을 iframe src에 주입하는 방식으로 전환.
+  - `key={selectedDocumentId}` 추가로 문서 전환 시 iframe 강제 재마운트.
+  - "PDF 불러오는 중..." 로딩 메시지 및 실패 fallback 메시지 추가.
+
+- **문서 삭제 기능 추가 (FE + BE - mydocument/page.tsx, api/document.ts)**
+  - `DELETE /api/v1/documents/{documentId}` API 함수(`deleteDocument`) 추가.
+  - 사이드바 문서 항목 hover 시 `×` 삭제 버튼 표시 (평소 hidden → hover opacity 전환).
+  - 삭제 클릭 → 확인 모달(문서명 포함) → 진행 중 disabled → API 호출 → 목록에서 즉시 제거.
+  - 삭제된 문서가 현재 선택된 문서였을 경우 자동으로 첫 번째 문서로 포커스 전환.
+
+- **홈 화면 Demo 섹션 YouTube 영상 삽입 (FE - page.tsx)**
+  - Demo 섹션의 스크린샷 이미지를 YouTube embed iframe(`https://www.youtube.com/embed/Kh_r0WPu9qA`)으로 교체.
+  - 기존 `aspect-ratio: 16/9` 컨테이너를 그대로 활용, `.demoYoutubeFrame { position: absolute; inset: 0; width: 100%; height: 100% }` 적용으로 카드 골격 유지.
+  - macOS 스타일 상단 dot bar, 다크 카드 배경 등 기존 Demo 카드 디자인 그대로 유지.
+
+- **"어떻게 동작하나요?" 모달 이미지 교체 (FE - page.tsx)**
+  - Hero 섹션 "어떻게 동작하나요?" 버튼 클릭 시 열리는 모달 이미지를 `demo-screenshot2.png` → `howtouse.webp`로 교체.
+
+---
+
+#### 전체 프로젝트 완성 회고
+
+| 구분 | 내용 |
+|------|------|
+| **프로젝트명** | ScholarDot — 영어 학술 논문 문장 단위 한·영 병렬 읽기 웹 시스템 |
+| **기간** | 2025년 말 ~ 2026년 4월 3일 |
+| **기술 스택** | Next.js 15 (App Router) · Spring Boot 3 · PostgreSQL · OpenAI · Railway · Vercel |
+| **배포 URL** | FE: `https://scholardot.vercel.app` · BE: `https://scholardot-production.up.railway.app` |
+
+**구현 완료 핵심 기능:**
+
+1. **PDF 업로드 → 문장 단위 자동 번역 파이프라인** — 업로드된 PDF를 백엔드에서 파싱하고, 문장 단위로 분리 후 OpenAI API를 통해 한국어 번역 결과를 DB에 저장. SSE/폴링으로 진행 상황을 프론트에 실시간 전달.
+
+2. **문장 단위 한·영 병렬 읽기 화면** — 원문(영어)과 번역(한국어)을 문장 단위로 나란히 배치. PDF 사이드바에서 실제 PDF 페이지 이미지 썸네일 표시 및 클릭 시 해당 페이지 첫 문장으로 즉시 이동.
+
+3. **형광펜 3색 하이라이트 + 메모 시스템** — 문장 클릭으로 파랑/초록/분홍 3색 하이라이트 토글. 텍스트 선택 후 팝오버로 하이라이트/메모 저장. localStorage 즉시 반영 + BE API 비동기 영속화 이중 저장.
+
+4. **복습 큐 + 검색 이동** — 하이라이트된 문장을 페이지 순서로 모아 복습 큐 표시. 검색어 입력 후 Enter/Shift+Enter로 매치 간 순환 이동.
+
+5. **이어 읽기** — 3초마다 현재 페이지·스크롤 위치 자동저장, "마지막 위치 이어 읽기" 버튼으로 복원.
+
+6. **내 문서함** — 업로드한 문서 목록 좌측 사이드바 + 선택 문서 PDF 우측 즉시 표시(blob URL 인증 방식). 문서 삭제(확인 모달 포함).
+
+7. **카카오/구글 OAuth 소셜 로그인** — Spring Security OAuth2 Client + JWT 기반 인증. 프론트·백엔드 분리 배포 환경에서의 Redirect URI 설정 완료.
+
+8. **프로덕션 풀스택 배포** — Vercel(FE) + Railway(BE + PostgreSQL) 운영 환경 구성. 환경 변수 분리, CORS·Security 설정, 스토리지 fallback(S3/로컬) 처리.
+
+**논문 기여점 요약 (논문 "구현" 챕터 재료):**
+- PDF 텍스트 추출 → 문장 경계 탐지 → 번역 → DB 저장의 4단계 파이프라인 설계
+- 비동기 번역 진행률 전달(폴링 방식)과 사용자 피드백 UX
+- 문장 단위 병렬 읽기 인터페이스 설계 (원문/번역 시각적 계층 분리)
+- 하이라이트·메모의 로컬 우선 저장 + API 비동기 동기화 이중 전략
+- Spring Security 필터 체인 트러블슈팅 (form login 비활성화, JWT entryPoint 분리)
+- Hibernate `ddl-auto: update` 한계와 DB 마이그레이션 직접 대응 사례
+
+---
+
+> 본 프로젝트는 1인 개발·풀스택·졸업논문을 동시에 완성하는 도전이었다.  
+> 설계 단계의 문서화부터 운영 배포까지 전 과정을 직접 경험하며,  
+> 실제 서비스 수준의 트러블슈팅과 UX 완성도를 모두 다루었다.
