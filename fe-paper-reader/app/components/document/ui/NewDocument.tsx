@@ -147,11 +147,14 @@ export default function NewDocumentPage() {
     if (!currentFile) {
       return;
     }
+    // accessToken이 아직 로드되지 않은 경우 업로드 시도 안 함 (재시도는 accessToken 의존성으로 자동 트리거)
+    if (!accessToken) {
+      return;
+    }
 
     const uploadFile = async () => {
       try {
         const formData = new FormData();
-        formData.append("ownerId", userInfo?.userId as string);
         formData.append("title", currentFile?.file?.name ?? "");
         formData.append("languageSrc", "ko");
         formData.append("languageTgt", "en");

@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,6 +20,7 @@ import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
 
+import swyp.paperdot.common.JwtAuthFilter;
 import swyp.paperdot.document.dto.DocumentResponse;
 import swyp.paperdot.document.dto.DocumentUploadRequest;
 import swyp.paperdot.document.service.DocumentDownloadService;
@@ -47,6 +49,11 @@ public class DocumentController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public DocumentResponse upload(@ModelAttribute DocumentUploadRequest request) {
+        // ownerId는 프론트에서 받지 않고 JWT 토큰에서 추출 (프론트 타이밍 이슈 및 보안 문제 방지)
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof JwtAuthFilter.PaperdotPrincipal principal) {
+            request.setOwnerId(principal.userId());
+        }
         return documentService.upload(request);
     }
 
