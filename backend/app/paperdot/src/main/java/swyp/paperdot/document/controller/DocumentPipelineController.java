@@ -8,9 +8,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import swyp.paperdot.common.JwtAuthFilter;
 import swyp.paperdot.document.service.DocumentHistoryService;
 import swyp.paperdot.document.service.DocumentPipelineService;
+import swyp.paperdot.document.service.DocumentService;
 
 import java.util.Map;
 
@@ -23,6 +27,7 @@ public class DocumentPipelineController {
 
     private final DocumentPipelineService documentPipelineService;
     private final DocumentHistoryService documentHistoryService;
+    private final DocumentService documentService;
 
     @Operation(summary = "문서 처리 파이프라인 실행", description = "특정 문서 ID에 대해 텍스트 추출, 번역, 저장 파이프라인을 비동기로 실행합니다.")
     @ApiResponses(value = {
@@ -66,6 +71,17 @@ public class DocumentPipelineController {
             @Parameter(description = "진행률을 조회할 문서 ID", required = true) @PathVariable Long documentId
     ) {
         return ResponseEntity.ok(documentPipelineService.getTranslationProgress(documentId));
+    }
+
+    @Operation(summary = "문서 삭제", description = "문서와 관련된 모든 데이터(번역, 메모, 파일)를 삭제합니다.")
+    @DeleteMapping("/{documentId}")
+    public ResponseEntity<Void> deleteDocument(@PathVariable Long documentId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof JwtAuthFilter.PaperdotPrincipal principal)) {
+            return ResponseEntity.status(401).build();
+        }
+        documentService.delete(documentId, principal.userId());
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "번역 기록 목록 조회", description = "사용자(ownerId)의 번역 완료 문서 목록을 조회합니다.")

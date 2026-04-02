@@ -14,6 +14,13 @@ public class DocumentExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentExceptionHandler.class);
 
+    @ExceptionHandler(DocumentNotFoundException.class)
+    public ResponseEntity<DocumentErrorResponse> handleNotFound(DocumentNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new DocumentErrorResponse(Instant.now(), HttpStatus.NOT_FOUND.value(), ex.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<DocumentErrorResponse> handleBadRequest(IllegalArgumentException ex) {
         return ResponseEntity

@@ -9,4 +9,6 @@ public interface UserDocNoteRepository extends JpaRepository<UserDocNoteEntity, 
     List<UserDocNoteEntity> findByUserIdAndDocumentIdOrderByDocUnitIdAsc(Long userId, Long documentId);
 
     boolean existsByIdAndUserId(Long id, Long userId);
+
+    void deleteByDocumentId(Long documentId);
 }

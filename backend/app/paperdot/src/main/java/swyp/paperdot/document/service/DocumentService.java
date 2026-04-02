@@ -3,21 +3,45 @@ package swyp.paperdot.document.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import swyp.paperdot.doc_units.docUnits.docUnitsRepository;
+import swyp.paperdot.doc_units.translation.DocUnitTranslationRepository;
 import swyp.paperdot.document.domain.Document;
 import swyp.paperdot.document.domain.DocumentFile;
 import swyp.paperdot.document.dto.DocumentResponse;
 import swyp.paperdot.document.dto.DocumentUploadRequest;
+import swyp.paperdot.document.exception.DocumentNotFoundException;
+import swyp.paperdot.document.note.UserDocNoteRepository;
 import swyp.paperdot.document.repository.DocumentRepository;
+import swyp.paperdot.document.storage.ObjectStorageClient;
+import swyp.paperdot.document.storage.StoragePathParser;
 
 @Service
 public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final DocumentFileService documentFileService;
+    private final docUnitsRepository docUnitsRepository;
+    private final DocUnitTranslationRepository docUnitTranslationRepository;
+    private final UserDocNoteRepository userDocNoteRepository;
+    private final ObjectStorageClient objectStorageClient;
+    private final StoragePathParser storagePathParser;
 
-    public DocumentService(DocumentRepository documentRepository, DocumentFileService documentFileService) {
+    public DocumentService(
+            DocumentRepository documentRepository,
+            DocumentFileService documentFileService,
+            docUnitsRepository docUnitsRepository,
+            DocUnitTranslationRepository docUnitTranslationRepository,
+            UserDocNoteRepository userDocNoteRepository,
+            ObjectStorageClient objectStorageClient,
+            StoragePathParser storagePathParser
+    ) {
         this.documentRepository = documentRepository;
         this.documentFileService = documentFileService;
+        this.docUnitsRepository = docUnitsRepository;
+        this.docUnitTranslationRepository = docUnitTranslationRepository;
+        this.userDocNoteRepository = userDocNoteRepository;
+        this.objectStorageClient = objectStorageClient;
+        this.storagePathParser = storagePathParser;
     }
 
     @Transactional
@@ -53,6 +77,30 @@ public class DocumentService {
                 documentFile.getMimeType(),
                 documentFile.getFileSizeBytes()
         );
+    }
+
+    @Transactional
+    public void delete(Long documentId, Long requesterId) {
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new DocumentNotFoundException("Document not found: " + documentId));
+
+        if (!document.getOwnerId().equals(requesterId)) {
+            throw new IllegalStateException("Forbidden");
+        }
+
+        docUnitTranslationRepository.deleteByDocUnitDocumentId(documentId);
+        docUnitsRepository.deleteByDocumentId(documentId);
+        userDocNoteRepository.deleteByDocumentId(documentId);
+
+        for (DocumentFile file : document.getFiles()) {
+            try {
+                String key = storagePathParser.getObjectKey(file.getStoragePath());
+                objectStorageClient.delete(key);
+            } catch (Exception ignored) {
+            }
+        }
+
+        documentRepository.deleteById(documentId);
     }
 
     private void validateUploadRequest(DocumentUploadRequest request) {

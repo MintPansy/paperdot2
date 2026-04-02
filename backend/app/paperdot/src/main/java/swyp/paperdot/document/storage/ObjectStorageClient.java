@@ -20,6 +20,8 @@ public interface ObjectStorageClient {
      */
     InputStream download(String objectKey);
 
+    void delete(String objectKey);
+
     String getBucket();
 
     StorageProvider getProvider();

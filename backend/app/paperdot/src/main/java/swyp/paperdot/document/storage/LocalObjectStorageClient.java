@@ -57,6 +57,19 @@ public class LocalObjectStorageClient implements ObjectStorageClient {
     }
 
     @Override
+    public void delete(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new IllegalArgumentException("object key is required");
+        }
+        Path targetPath = rootDir.resolve(objectKey).normalize();
+        try {
+            Files.deleteIfExists(targetPath);
+        } catch (IOException e) {
+            throw new RuntimeException("Local file delete failed. objectKey=" + objectKey, e);
+        }
+    }
+
+    @Override
     public String getBucket() {
         return bucket;
     }
