@@ -38,10 +38,10 @@ public class DocumentFile {
     @Column(name = "original_filename", nullable = false)
     private String originalName;
 
-    @Column(name = "stored_name", nullable = false)
+    @Column(name = "stored_name")
     private String storedName;
 
-    @Column(name = "file_path", nullable = false)
+    @Column(name = "storage_path", nullable = false)
     private String filePath;
 
     @Column(nullable = false)

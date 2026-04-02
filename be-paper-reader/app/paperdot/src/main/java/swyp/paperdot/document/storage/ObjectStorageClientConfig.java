@@ -17,7 +17,8 @@ import java.nio.file.Path;
 @Configuration
 public class ObjectStorageClientConfig {
 
-    private static final String DEFAULT_LOCAL_STORAGE_ROOT = "./uploads";
+    // Railway 컨테이너에서 앱 디렉토리(./uploads)는 read-only → /tmp/uploads 사용
+    private static final String DEFAULT_LOCAL_STORAGE_ROOT = "/tmp/uploads";
 
     @Bean
     public ObjectStorageClient objectStorageClient() {
