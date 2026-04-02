@@ -579,7 +579,7 @@
   - 삭제된 문서가 현재 선택된 문서였을 경우 자동으로 첫 번째 문서로 포커스 전환.
 
 - **홈 화면 Demo 섹션 YouTube 영상 삽입 (FE - page.tsx)**
-  - Demo 섹션의 스크린샷 이미지를 YouTube embed iframe(`https://www.youtube.com/embed/Kh_r0WPu9qA`)으로 교체.
+  - Demo 섹션의 스크린샷 이미지를 YouTube embed iframe(`https://www.youtube.com/embed/Zb2yrE8ssxE`)으로 교체.
   - 기존 `aspect-ratio: 16/9` 컨테이너를 그대로 활용, `.demoYoutubeFrame { position: absolute; inset: 0; width: 100%; height: 100% }` 적용으로 카드 골격 유지.
   - macOS 스타일 상단 dot bar, 다크 카드 배경 등 기존 Demo 카드 디자인 그대로 유지.
 

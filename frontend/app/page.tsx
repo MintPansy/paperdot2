@@ -231,7 +231,7 @@ export default function Home() {
 
             <div className={styles.demoImageWrap}>
               <iframe
-                src="https://www.youtube.com/embed/Kh_r0WPu9qA"
+                src="https://www.youtube.com/embed/Zb2yrE8ssxE"
                 title="ScholarDot 데모 영상"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
