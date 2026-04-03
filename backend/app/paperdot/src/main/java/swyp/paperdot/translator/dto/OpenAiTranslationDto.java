@@ -54,4 +54,7 @@ public class OpenAiTranslationDto {
 
     // 원본 문장과 번역된 문장 쌍을 위한 DTO
     public record TranslationPair(String source, String translated) {}
+
+    // 학술 논문 번역 결과 항목 (문장 순서 id 포함)
+    public record AcademicTranslationItem(int id, String original, String translated) {}
 }

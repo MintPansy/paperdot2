@@ -13,8 +13,10 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import swyp.paperdot.translator.dto.OpenAiTranslationDto;
+import swyp.paperdot.translator.dto.OpenAiTranslationDto.AcademicTranslationItem;
 import swyp.paperdot.translator.dto.OpenAiTranslationDto.TranslationPair;
 import swyp.paperdot.translator.exception.TranslationException;
+import swyp.paperdot.translator.exception.TranslationSizeMismatchException;
 
 import java.util.Collections;
 import java.util.List;
@@ -25,6 +27,8 @@ public class OpenAiTranslator implements TranslatorPort {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+
+    private static final int ACADEMIC_MAX_ATTEMPTS = 3;
 
     private final String apiKey;
     private final String model;
@@ -122,6 +126,106 @@ public class OpenAiTranslator implements TranslatorPort {
         } catch (RestClientException e) {
             throw new TranslationException("OpenAI API call failed. " + e.getMessage(), e);
         }
+    }
+
+    public List<AcademicTranslationItem> translateAcademic(String inputText) {
+        if (inputText == null || inputText.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        int expectedCount = countSentences(inputText);
+        Exception lastException = null;
+
+        for (int attempt = 1; attempt <= ACADEMIC_MAX_ATTEMPTS; attempt++) {
+            try {
+                List<AcademicTranslationItem> items = callOpenAiForAcademic(inputText);
+
+                if (items.size() != expectedCount) {
+                    log.warn("Academic translation size mismatch on attempt {}/{}: expected={}, actual={}",
+                            attempt, ACADEMIC_MAX_ATTEMPTS, expectedCount, items.size());
+                    lastException = new TranslationSizeMismatchException(
+                            String.format("Expected %d sentences but got %d. attempt=%d", expectedCount, items.size(), attempt));
+                    continue;
+                }
+
+                return items;
+
+            } catch (TranslationSizeMismatchException e) {
+                lastException = e;
+            } catch (TranslationException e) {
+                log.error("Academic translation API error on attempt {}/{}: {}", attempt, ACADEMIC_MAX_ATTEMPTS, e.getMessage());
+                lastException = e;
+            }
+        }
+
+        if (lastException instanceof TranslationSizeMismatchException) {
+            throw (TranslationSizeMismatchException) lastException;
+        }
+        throw new TranslationException("Academic translation failed after " + ACADEMIC_MAX_ATTEMPTS + " attempts.", lastException);
+    }
+
+    private List<AcademicTranslationItem> callOpenAiForAcademic(String inputText) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        OpenAiTranslationDto.Message systemMessage = new OpenAiTranslationDto.Message("system", createAcademicTranslationPrompt());
+        OpenAiTranslationDto.Message userMessage = new OpenAiTranslationDto.Message("user", inputText);
+
+        OpenAiTranslationDto.ChatRequest request = OpenAiTranslationDto.ChatRequest.of(
+                model,
+                List.of(systemMessage, userMessage),
+                new OpenAiTranslationDto.ResponseFormat("json_object")
+        );
+
+        try {
+            HttpEntity<OpenAiTranslationDto.ChatRequest> entity = new HttpEntity<>(request, headers);
+            OpenAiTranslationDto.ChatResponse response = restTemplate.postForObject(apiUrl, entity, OpenAiTranslationDto.ChatResponse.class);
+
+            if (response == null || CollectionUtils.isEmpty(response.getChoices())) {
+                throw new TranslationException("OpenAI returned an empty response.", null);
+            }
+
+            String rawContent = response.getChoices().get(0).getMessage().content();
+            return parseAcademicTranslationResponse(rawContent);
+
+        } catch (RestClientException e) {
+            throw new TranslationException("OpenAI API call failed. " + e.getMessage(), e);
+        }
+    }
+
+    private int countSentences(String text) {
+        String[] parts = text.trim().split("(?<=[.?!])\\s+");
+        return parts.length;
+    }
+
+    private List<AcademicTranslationItem> parseAcademicTranslationResponse(String content) {
+        try {
+            // response_format: json_object 모드에서는 {"translations": [...]} 래퍼로 올 수 있음
+            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(content);
+            com.fasterxml.jackson.databind.JsonNode arrayNode = root.isArray() ? root : root.get("translations");
+
+            if (arrayNode == null || !arrayNode.isArray()) {
+                throw new TranslationException("Unexpected academic translation response format. content=" + content, null);
+            }
+
+            TypeReference<List<AcademicTranslationItem>> typeRef = new TypeReference<>() {};
+            return objectMapper.convertValue(arrayNode, typeRef);
+
+        } catch (JsonProcessingException e) {
+            throw new TranslationException("Failed to parse academic translation response. content=" + content, e);
+        }
+    }
+
+    private String createAcademicTranslationPrompt() {
+        return "You are a professional academic translator.\n" +
+               "Translate the following English academic text into Korean.\n\n" +
+               "IMPORTANT RULES:\n" +
+               "1. Preserve sentence boundaries exactly as in the original text.\n" +
+               "2. Do NOT merge or split sentences.\n" +
+               "3. Maintain one-to-one correspondence between original and translated sentences.\n" +
+               "4. Output a JSON object with a \"translations\" key containing an array.\n\n" +
+               "Format:\n" +
+               "{\"translations\": [{\"id\": 1, \"original\": \"...\", \"translated\": \"...\"}, ...]}";
     }
 
     private String createSystemPrompt(String targetLang) {
