@@ -361,13 +361,28 @@ export default function ReadList({
     setMemoContent("");
 
     // API 동기화 (auth 있을 때만)
-    if (documentId && accessToken) {
-      const apiContent = content || null;
-      const action = memoModal.noteId != null
-        ? updateNote(documentId, memoModal.noteId, { content: apiContent }, accessToken)
-        : createNote(documentId, { docUnitId: memoModal.docUnitId, noteType: "MEMO", content: apiContent }, accessToken);
-      action.then(() => refetchNotes()).catch(() => {});
+    if (!documentId || !accessToken) return;
+
+    if (!content) {
+      // 수정 중 내용을 모두 지운 경우 → 메모 삭제 (빈 문자열 업데이트 대신)
+      if (memoModal.noteId != null) {
+        deleteNote(documentId, memoModal.noteId, accessToken)
+          .then(() => refetchNotes())
+          .catch(() => {});
+      }
+      // 신규 메모 작성에서 내용 없음 → 생성 API 호출 없음
+      return;
     }
+
+    const action =
+      memoModal.noteId != null
+        ? updateNote(documentId, memoModal.noteId, { content }, accessToken)
+        : createNote(
+            documentId,
+            { docUnitId: memoModal.docUnitId, noteType: "MEMO", content },
+            accessToken
+          );
+    action.then(() => refetchNotes()).catch(() => {});
   }, [memoModal, documentId, accessToken, memoContent, refetchNotes]);
 
   const closeMemoModal = useCallback(() => {

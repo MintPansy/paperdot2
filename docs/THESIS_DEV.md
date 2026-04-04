@@ -92,6 +92,25 @@
 
 ## 6. 개발 일지
 
+### 이 파일을 졸업논문에 쓰는 방법
+
+1. **「구현」챕터**  
+   날짜별 항목을 기능 단위 소제목으로 나누어 서술한다. 여기 적어 둔 **문제 → 원인 → 조치 → 관련 파일 경로**는 초안 문장을 그대로 옮기거나 각주·인용으로 연결하기 좋다.
+
+2. **「연구의 의의·기여」**  
+   각 일지 끝의 `> 본 작업은 … 효과를 얻었다` 요약을 논문 말투로 다듬어, “사용자 경험·신뢰성·유지보수” 등 **한두 문장 기여**로 쓴다.
+
+3. **「실험·평가」**  
+   UX 개선(이어 읽기, 문서 라이브러리, 로그인 유지 등)은 **과제 수행 시간·클릭 수·오류율·설문** 같은 지표와 짝을 지어 표로 정리하면 평가 챕터의 근거가 된다. (일지에는 “무엇을 바꿨는지”만 있어도 됨.)
+
+4. **부록·이력**  
+   `THESIS_DEV.md` 전체 또는 발췌를 부록으로 두거나, Git 커밋 해시·날짜와 함께 “구현 이력”으로 제시하면 재현성·성실성을 보여 줄 수 있다.
+
+5. **진행 관리**  
+   상단 Phase 1~3 체크리스트와 일지 날짜를 맞춰 두면, 지도교수와 **논문 일정·남은 작업**을 공유하기 쉽다.
+
+---
+
 ### 2025-03-17 (FE 홈·푸터 정리)
 
 - **홈 화면 가운데 정렬**
@@ -694,3 +713,40 @@
   - `backend/.../translator/OpenAiTranslator.java`
 
 > 본 작업은 학술 논문 번역 결과의 문장 경계 무결성을 보장하고 외부 API 불안정성에 대응하기 위한 것으로, 전용 프롬프트 설계·재시도 로직·문장 수 검증을 계층적으로 구성함으로써 신뢰 가능한 문장 단위 번역 결과를 안정적으로 확보하는 효과를 얻었다.
+
+---
+
+### 2026-04-04 (읽기·문서함 UX 고도화, 세션 복원, 논문용 라이브러리 UI)
+
+- **읽기 진행 표시·이어 읽기 정확도 (FE — `ReadHeader.tsx`, `readHeader.module.css`, `ReadList.tsx`, `lib/localStorage.ts`)**
+  - `ReadingProgress`에 `scrollFraction`, `lastDataIndex` 추가, `documentId` 기준 키(`readingProgress-doc:{id}`)와 파일명 키 병행 저장으로 문서별 복원 일관성 강화.
+  - 헤더에 **스크롤 기반 진행률 바**와 **「문장 n / 전체」** 라벨 표시.
+  - 복원 전 초기 `detect()`가 진행도를 0으로 덮어쓰던 레이스를 `scrollPersistReadyRef`로 차단.
+  - `lastDataIndex` 우선·`scrollTop` 보조로 마지막 읽던 문장 블록에 스크롤 정렬.
+
+- **내 문서함 → 읽기 화면 연동 (FE — `mypage/mydocument/page.tsx`, `components/button/Button.tsx`)**
+  - `prepareReadSession`: 번역 쌍 API 로드, `sessionStorage`/`localStorage` 동기화, PDF `fetch` → Data URL로 `pdfFileData` 주입 후 `/read` 이동.
+  - 「이어서 보기」·문서 **더블클릭**에 동일 경로 적용.
+  - `ReadList`에서 `pdfFileData`가 없을 때 `documentId`+토큰으로 PDF를 다시 받아 **사이드바 썸네일**이 이어 읽기 후에도 표시되도록 함.
+  - 공용 `Button`에 `disabled` prop 타입 추가(빌드 오류 해소).
+
+- **문서 목록 정렬 (FE — `mydocument/page.tsx`)**
+  - `getReadingProgress`의 `updatedAt` 내림차순, 없으면 `lastTranslatedAt`으로 정렬.
+  - `/mypage/mydocument` 재진입 시 `pathname` effect로 로컬 진행 시각 반영 재정렬.
+
+- **새로고침 후 로그인·데모 세션 (FE — `lib/authSession.ts`, `AuthBootstrap.tsx`, `Layout.tsx`, `IsLogin.tsx`, `HeaderModal.tsx`, `login/page.tsx`, `account/page.tsx`, `useLogin.ts`, `ReadList.tsx`)**
+  - `/read`에 Header가 없어 토큰 복원이 안 되던 문제를 **Layout 전역 `AuthBootstrap`**(`POST /auth/token` → `/users/me`)으로 해결; `authHydrated`까지 된 뒤 보호 라우트 리다이렉트.
+  - 데모 모드: `localStorage` 플래그·프로필 저장, 체험 진입 시 실제 문서용 `documentId`/`translationPairs` 등 제거 → **`sample_test.pdf`·목 데이터 고정**.
+  - 실제 로그인 시 `clearDemoSession`, 로그아웃 시 데모 플래그 정리.
+
+- **문서 라이브러리 UI (읽기 연속성·발견성 중심) (FE — `useDocumentLibrary.ts`, `DocumentLibraryCard.tsx`, `DocumentPdfModal.tsx`, `mydocument/page.tsx`, CSS 모듈)**
+  - 사이드바+단일 iframe 구조를 **반응형 카드 그리드**(대략 3~4열)로 전환.
+  - 카드: pdf.js **1페이지 썸네일**(IntersectionObserver 지연 로드), 제목, 진행률, 상대 시각 문구, 「원본 PDF」버튼, 삭제.
+  - **카드 클릭(지연 단일 클릭)**: 마지막 읽기 위치로 번역 읽기 진입; **더블클릭·원본 버튼**: 전체 PDF 모달(`Esc`/오버레이 닫기).
+  - Zustand로 PDF data URL 캐시·모달 상태 관리.
+  - 상단 「이어 읽기」는 `documents[0]`·히어로 썸네일과 일치.
+
+- **메모: 빈 내용 저장 시 삭제 (FE — `ReadList.tsx`)**
+  - 메모 수정 후 내용을 모두 지우고 저장하면 `updateNote(null)` 대신 **`deleteNote`**로 노트 삭제(의미상 “메모 제거”와 일치).
+
+> 본 작업은 학술 PDF 읽기 서비스에서 **읽기 연속성**(진행도·복원·문서함→읽기)·**발견성**(썸네일·카드 그리드)·**세션 신뢰성**(새로고침·데모 분리)을 동시에 강화하기 위한 것으로, 로컬·API·UI 계층을 맞추고 논문 「구현」「UX 평가」 챕터에서 기능적 기여와 사용자 흐름을 설명할 수 있는 근거를 확보하는 효과를 얻었다.
