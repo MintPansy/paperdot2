@@ -7,9 +7,13 @@ import {
   getTranslatedDocumentUnits,
 } from "@/app/api/document";
 import Button from "@/app/components/button/Button";
+import PdfPageThumbnail from "@/app/components/read/pdf/PdfPageThumbnail";
 import { getApiUrl } from "@/app/config/env";
 import styles from "@/app/mypage/mydocument/document.module.css";
+import DocumentLibraryCard from "@/app/mypage/mydocument/DocumentLibraryCard";
+import DocumentPdfModal from "@/app/mypage/mydocument/DocumentPdfModal";
 import { useAccessTokenStore, useLoginStore } from "@/app/store/useLogin";
+import { useDocumentLibraryStore } from "@/app/store/useDocumentLibrary";
 import { getReadingProgress } from "@/lib/localStorage";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -85,15 +89,30 @@ function sortDocumentsByLastViewed(docs: DocumentListItem[]): DocumentListItem[]
   });
 }
 
+function readingProgressPercentForDoc(doc: DocumentListItem): number {
+  const p = getReadingProgress(doc.title, String(doc.documentId));
+  if (!p) return 0;
+  if (p.scrollFraction != null) {
+    return Math.round(Math.min(100, Math.max(0, p.scrollFraction * 100)));
+  }
+  if (doc.totalPages > 0) {
+    return Math.round(
+      Math.min(100, Math.max(0, ((p.pageIndex + 1) / doc.totalPages) * 100))
+    );
+  }
+  return 0;
+}
+
 export default function MyDocument() {
   const router = useRouter();
   const pathname = usePathname();
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
-  const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
   const userData = useLoginStore((state) => state.userInfo);
   const accessToken = useAccessTokenStore((s) => s.accessToken);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const firstDocId = documents[0]?.documentId;
+  const heroPdfDataUrl = useDocumentLibraryStore((s) =>
+    firstDocId != null ? s.pdfDataUrlById[firstDocId] : undefined
+  );
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [openingRead, setOpeningRead] = useState(false);
@@ -121,7 +140,6 @@ export default function MyDocument() {
   useEffect(() => {
     const fetchDocuments = async () => {
       const response = await getDocumentList(userData?.userId as string);
-      console.log("response", response);
       const newDocs = sortDocumentsByLastViewed(
         response.map((doc: DocumentListItem) => ({
           documentId: doc.documentId,
@@ -133,10 +151,6 @@ export default function MyDocument() {
         }))
       );
       setDocuments(newDocs);
-      setSelectedDocumentId((prev) => {
-        if (prev && newDocs.some((doc) => doc.documentId === prev)) return prev;
-        return newDocs.length > 0 ? newDocs[0].documentId : null;
-      });
     };
     fetchDocuments();
   }, [userData?.userId]);
@@ -149,61 +163,16 @@ export default function MyDocument() {
     );
   }, [pathname]);
 
-  // 선택된 문서 PDF를 blob URL로 fetch (Bearer 토큰 포함)
-  useEffect(() => {
-    if (!selectedDocumentId) {
-      setPdfBlobUrl(null);
-      return;
-    }
-
-    let active = true;
-    let objectUrl: string | null = null;
-    setPdfLoading(true);
-    setPdfBlobUrl(null);
-
-    const headers: HeadersInit = {};
-    if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
-
-    fetch(`${API_BASE_URL}/documents/${selectedDocumentId}/file?inline=true`, {
-      headers,
-      credentials: "include",
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("PDF 로드 실패");
-        return res.blob();
-      })
-      .then((blob) => {
-        if (!active) return;
-        objectUrl = URL.createObjectURL(blob);
-        setPdfBlobUrl(objectUrl);
-      })
-      .catch(() => {
-        if (active) setPdfBlobUrl(null);
-      })
-      .finally(() => {
-        if (active) setPdfLoading(false);
-      });
-
-    return () => {
-      active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [selectedDocumentId, accessToken]);
-
   const handleDeleteConfirm = async () => {
     if (!deleteTargetId) return;
     setDeleting(true);
     try {
       await deleteDocument(deleteTargetId, accessToken ?? undefined);
-      setDocuments((prev) => {
-        const next = sortDocumentsByLastViewed(
+      setDocuments((prev) =>
+        sortDocumentsByLastViewed(
           prev.filter((d) => d.documentId !== deleteTargetId)
-        );
-        if (selectedDocumentId === deleteTargetId) {
-          setSelectedDocumentId(next.length > 0 ? next[0].documentId : null);
-        }
-        return next;
-      });
+        )
+      );
     } catch {
       // 실패해도 모달은 닫음
     } finally {
@@ -217,9 +186,6 @@ export default function MyDocument() {
   };
 
   const recentDocument = documents[0];
-  const selectedDocument = documents.find(
-    (doc) => doc.documentId === selectedDocumentId
-  );
   const deleteTargetDoc = documents.find((d) => d.documentId === deleteTargetId);
 
   const recentProgress = recentDocument
@@ -306,98 +272,84 @@ export default function MyDocument() {
         </section>
       ) : (
         <section className={styles.viewerSection}>
-          <div className={styles.recentDocumentPrompt}>
+          <div>
+            <p className={styles.librarySectionTitle}>이어 읽기</p>
             <p className={styles.recentDocumentPromptText}>
-              {userData?.nickname}님, {recentDocument?.title}를 이어서 볼까요?
+              {userData?.nickname}님, <strong>{recentDocument?.title}</strong>를
+              이어서 볼까요?
             </p>
           </div>
 
           <div className={styles.documentInfo}>
-            <div className={styles.documentInfoContent}>
-              <Image src="/pdfLogo.svg" alt="pdf" width={40} height={40} />
-              <p className={styles.documentInfoImageText}>
-                {recentDocument?.title || "제목 없음"}
-              </p>
-              <Button
-                className={styles.documentInfoButton}
-                onClick={handleContinueReading}
-                disabled={openingRead}>
-                {openingRead ? "불러오는 중…" : "이어서 보기"}
-              </Button>
-            </div>
-            <div className={styles.documentInfoProgressContainer}>
-              <p className={styles.documentInfoProgressText}>진행율</p>
-              <div className={styles.documentInfoProgressValue}>
-                <div
-                  className={styles.documentInfoProgressFill}
-                  style={{ width: `${recentProgressPct}%` }}
-                />
+            <div className={styles.continueHeroRow}>
+              {heroPdfDataUrl && (
+                <div className={styles.continueHeroThumb}>
+                  <PdfPageThumbnail
+                    pdfDataUrl={heroPdfDataUrl}
+                    pageNumber={1}
+                    scale={0.24}
+                    className={styles.continueHeroThumbCanvas}
+                  />
+                </div>
+              )}
+              <div className={styles.continueHeroMain}>
+                <div className={styles.documentInfoContent}>
+                  <Image src="/pdfLogo.svg" alt="" width={40} height={40} />
+                  <p className={styles.documentInfoImageText}>
+                    {recentDocument?.title || "제목 없음"}
+                  </p>
+                  <Button
+                    className={styles.documentInfoButton}
+                    onClick={handleContinueReading}
+                    disabled={openingRead}>
+                    {openingRead ? "불러오는 중…" : "이어서 보기"}
+                  </Button>
+                </div>
+                <div className={styles.documentInfoProgressContainer}>
+                  <p className={styles.documentInfoProgressText}>진행률</p>
+                  <div className={styles.documentInfoProgressValue}>
+                    <div
+                      className={styles.documentInfoProgressFill}
+                      style={{ width: `${recentProgressPct}%` }}
+                    />
+                  </div>
+                  <p className={styles.progressPercent}>{recentProgressPct}%</p>
+                </div>
               </div>
-              <p className={styles.progressPercent}>{recentProgressPct}%</p>
             </div>
           </div>
 
-          <section className={styles.pdfWorkspace}>
-            <aside className={styles.pdfSidebar}>
-              <h2 className={styles.pdfSidebarTitle}>문서함</h2>
-              <div className={styles.pdfSidebarList}>
-                {documents.map((doc) => (
-                  <div
+          <div>
+            <h2 className={styles.librarySectionTitle}>문서 라이브러리</h2>
+            <p className={styles.librarySectionSub}>
+              카드 영역을 누르면 번역 읽기 화면으로 돌아가며, 마지막으로 읽던
+              위치부터 이어집니다. 원본 PDF는 카드의 「원본 PDF」로 바로 열 수
+              있고, 같은 동작을 카드에서 더블클릭으로도 열 수 있습니다.
+            </p>
+            <div className={styles.libraryGrid}>
+              {documents.map((doc, index) => {
+                const progress = getReadingProgress(
+                  doc.title,
+                  String(doc.documentId)
+                );
+                return (
+                  <DocumentLibraryCard
                     key={doc.documentId}
-                    className={
-                      selectedDocumentId === doc.documentId
-                        ? `${styles.pdfDocItem} ${styles.pdfDocItemSelected}`
-                        : styles.pdfDocItem
-                    }>
-                    <button
-                      type="button"
-                      className={styles.pdfDocButton}
-                      onClick={() => setSelectedDocumentId(doc.documentId)}
-                      onDoubleClick={(e) => {
-                        e.preventDefault();
-                        void handleOpenDocumentRead(doc);
-                      }}
-                      disabled={openingRead}
-                      title="한 번 클릭: 선택 · 더블클릭: 읽기 화면에서 마지막 위치로 열기">
-                      <span className={styles.pdfDocTitle}>{doc.title}</span>
-                      <span className={styles.pdfDocMeta}>
-                        {new Date(doc.lastTranslatedAt).toLocaleDateString()} ·{" "}
-                        {doc.totalPages}p
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.pdfDocDeleteBtn}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteTargetId(doc.documentId);
-                      }}
-                      title="문서 삭제"
-                      aria-label="문서 삭제">
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </aside>
-
-            <div className={styles.pdfViewerCard}>
-              {pdfLoading ? (
-                <div className={styles.pdfEmptyState}>PDF 불러오는 중...</div>
-              ) : pdfBlobUrl ? (
-                <iframe
-                  key={selectedDocumentId}
-                  title={selectedDocument?.title ?? "PDF"}
-                  src={pdfBlobUrl}
-                  className={styles.pdfIframe}
-                />
-              ) : (
-                <div className={styles.pdfEmptyState}>
-                  {selectedDocument ? "PDF를 불러올 수 없습니다." : "문서를 선택해주세요"}
-                </div>
-              )}
+                    doc={doc}
+                    accessToken={accessToken}
+                    isRecentHighlight={index === 0}
+                    progressPercent={readingProgressPercentForDoc(doc)}
+                    readingUpdatedAt={progress?.updatedAt ?? 0}
+                    openingRead={openingRead}
+                    onContinueRead={() => void handleOpenDocumentRead(doc)}
+                    onDelete={() => setDeleteTargetId(doc.documentId)}
+                  />
+                );
+              })}
             </div>
-          </section>
+          </div>
+
+          <DocumentPdfModal accessToken={accessToken} />
         </section>
       )}
     </main>

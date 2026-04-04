@@ -23,15 +23,18 @@ type PdfPageThumbnailProps = {
   pdfDataUrl: string;
   pageNumber: number;
   className?: string;
+  /** 렌더 스케일 (기본 0.32). 카드 썸네일 등에서 조정 */
+  scale?: number;
 };
 
 /**
- * sessionStorage의 data URL로부터 한 페이지를 캔버스에 렌더링 (사이드바 미리보기용).
+ * Data URL 또는 blob: URL로부터 한 페이지를 캔버스에 렌더링 (미리보기용).
  */
 export default function PdfPageThumbnail({
   pdfDataUrl,
   pageNumber,
   className,
+  scale = 0.32,
 }: PdfPageThumbnailProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -46,7 +49,6 @@ export default function PdfPageThumbnail({
         if (cancelled) return;
         const page = await pdf.getPage(pageNumber);
         if (cancelled) return;
-        const scale = 0.32;
         const viewport = page.getViewport({ scale });
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
@@ -62,7 +64,7 @@ export default function PdfPageThumbnail({
     return () => {
       cancelled = true;
     };
-  }, [pdfDataUrl, pageNumber]);
+  }, [pdfDataUrl, pageNumber, scale]);
 
   return <canvas ref={canvasRef} className={className} aria-hidden />;
 }

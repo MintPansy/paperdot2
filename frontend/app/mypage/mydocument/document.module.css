@@ -12,8 +12,86 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 20px;
   min-height: calc(100vh - 140px);
+}
+
+.librarySectionTitle {
+  margin: 0 0 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.librarySectionSub {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.55;
+  max-width: 52ch;
+}
+
+.libraryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+@media (min-width: 1100px) {
+  .libraryGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 720px) and (max-width: 1099px) {
+  .libraryGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.continueHero {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.continueHeroRow {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 18px;
+}
+
+.continueHeroThumb {
+  display: none;
+  width: 112px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #f1f5f9, #e2e8f0);
+  border: 1px solid #e2e8f0;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+@media (min-width: 640px) {
+  .continueHeroThumb {
+    display: flex;
+  }
+}
+
+.continueHeroThumbCanvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.continueHeroMain {
+  flex: 1;
+  min-width: 0;
 }
 
 .emptyStateSection {
