@@ -27,6 +27,53 @@
   flex-shrink: 0;
 }
 
+.readProgressWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+  max-width: 200px;
+}
+
+.readProgressTrack {
+  height: 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.readProgressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4787ff, #2563eb);
+  transition: width 0.12s ease-out;
+}
+
+.readProgressMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  color: #6b7280;
+}
+
+.readProgressSentence {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.readProgressPercent {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #4787ff;
+  flex-shrink: 0;
+}
+
 .link {
   display: flex;
   align-items: center;
@@ -148,6 +195,18 @@
 
   .readHeaderFileName {
     color: #e5e7eb;
+  }
+
+  .readProgressTrack {
+    background: rgba(148, 163, 184, 0.25);
+  }
+
+  .readProgressMeta {
+    color: #9ca3af;
+  }
+
+  .readProgressPercent {
+    color: #93c5fd;
   }
 }
 

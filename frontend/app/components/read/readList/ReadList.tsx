@@ -5,7 +5,16 @@ import ReadHeader from "../../header/ReadHeader";
 import styles from "./readList.module.css";
 import { useClickOutSide } from "@/app/hooks/useClickOutSide";
 import { useAccessTokenStore, useLoginStore } from "@/app/store/useLogin";
-import { getJSON, getNumber, setJSON, setNumber, getReadingProgress, setReadingProgress } from "@/lib/localStorage";
+import {
+  getJSON,
+  getNumber,
+  setJSON,
+  setNumber,
+  getReadingProgress,
+  setReadingProgress,
+  type ReadingProgress,
+} from "@/lib/localStorage";
+import { getApiUrl } from "@/app/config/env";
 import {
   getNotes,
   createNote,
@@ -98,13 +107,32 @@ export default function ReadList({
     text: string;
   } | null>(null);
   const [savedReadingPosition, setSavedReadingPosition] = useState(() => {
-    const progress = getReadingProgress(fileName);
-    if (progress) return { pageIndex: progress.pageIndex, scrollTop: progress.scrollTop };
+    const progress = getReadingProgress(fileName, documentId);
+    if (progress)
+      return {
+        pageIndex: progress.pageIndex,
+        scrollTop: progress.scrollTop,
+        lastDataIndex: progress.lastDataIndex,
+      };
     return {
       pageIndex: getNumber(`${storageNamespace}:position:pageIndex`, 0),
       scrollTop: getNumber(`${storageNamespace}:position:scrollTop`, 0),
+      lastDataIndex: undefined as number | undefined,
     };
   });
+
+  const scrollPersistReadyRef = useRef(false);
+  const restoredForKeyRef = useRef<string | null>(null);
+
+  const [readingViewport, setReadingViewport] = useState({
+    fraction: 0,
+    topSentenceOneBased: 0,
+    totalSentences: 0,
+  });
+
+  const [sidebarPdfDataUrl, setSidebarPdfDataUrl] = useState<string | null>(() =>
+    typeof window !== "undefined" ? sessionStorage.getItem("pdfFileData") : null
+  );
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -115,6 +143,50 @@ export default function ReadList({
       .catch(() => setNotes([]))
       .finally(() => setNotesLoading(false));
   }, [documentId, accessToken]);
+
+  useEffect(() => {
+    if (sidebarPdfDataUrl) return;
+    if (!documentId || !accessToken) return;
+    const isDemo = useLoginStore.getState().userInfo?.userId === "demo-user";
+    if (isDemo) return;
+
+    let cancelled = false;
+    const API_BASE_URL = getApiUrl();
+    const headers: HeadersInit = {
+      Authorization: `Bearer ${accessToken}`,
+    };
+    fetch(`${API_BASE_URL}/documents/${documentId}/file?inline=true`, {
+      headers,
+      credentials: "include",
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("pdf");
+        return res.blob();
+      })
+      .then(
+        (blob) =>
+          new Promise<string>((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result as string);
+            fr.onerror = () => reject(new Error("read"));
+            fr.readAsDataURL(blob);
+          })
+      )
+      .then((dataUrl) => {
+        if (cancelled) return;
+        setSidebarPdfDataUrl(dataUrl);
+        try {
+          sessionStorage.setItem("pdfFileData", dataUrl);
+        } catch {
+          /* storage quota */
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sidebarPdfDataUrl, documentId, accessToken]);
 
   const refetchNotes = useCallback(() => {
     if (!documentId || !accessToken) return;
@@ -132,10 +204,6 @@ export default function ReadList({
   const [selectedPageIndex, setSelectedPageIndex] = useState(0);
   const [showSidebar, setShowSidebar] = useState(true);
   const [pdfModal, setPdfModal] = useState<{ pageNum: number } | null>(null);
-  const pdfDataUrl = useRef<string | null>(null);
-  if (typeof window !== "undefined" && !pdfDataUrl.current) {
-    pdfDataUrl.current = sessionStorage.getItem("pdfFileData");
-  }
   const [filterMode, setFilterMode] = useState<"all" | "korean" | "english">(
     "all"
   );
@@ -195,7 +263,7 @@ export default function ReadList({
     [dataToPage]
   );
 
-  const showPdfThumbnails = Boolean(pdfDataUrl.current);
+  const showPdfThumbnails = Boolean(sidebarPdfDataUrl);
 
   const contentScrollRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -384,12 +452,28 @@ export default function ReadList({
     });
   }, [notes, notesLoading, data]);
 
-  const saveReadingPosition = useCallback(
-    (pageIndex: number, scrollTop: number) => {
-      setSavedReadingPosition({ pageIndex, scrollTop });
-      setReadingProgress(fileName, { pageIndex, scrollTop, updatedAt: Date.now() });
+  const persistReadingPosition = useCallback(
+    (pageIndex: number, scrollTop: number, lastDataIndex: number) => {
+      const scrollEl = contentScrollRef.current;
+      let scrollFraction: number | undefined;
+      if (scrollEl) {
+        const maxScroll = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+        scrollFraction =
+          maxScroll <= 0 ? 1 : Math.min(1, Math.max(0, scrollTop / maxScroll));
+      }
+      const payload: ReadingProgress = {
+        pageIndex,
+        scrollTop,
+        updatedAt: Date.now(),
+        scrollFraction,
+        lastDataIndex,
+      };
+      if (scrollPersistReadyRef.current) {
+        setSavedReadingPosition({ pageIndex, scrollTop, lastDataIndex });
+        setReadingProgress(fileName, payload, documentId);
+      }
     },
-    [fileName]
+    [fileName, documentId]
   );
 
   // ─── 스크롤 → 현재 페이지 감지 ───
@@ -411,11 +495,34 @@ export default function ReadList({
 
     let rafId = 0;
 
+    const topDataIndexAtScroll = (scrollTop: number) => {
+      let topIdx = 0;
+      for (let i = 0; i < itemRefs.current.length; i++) {
+        const ref = itemRefs.current[i];
+        if (!ref) continue;
+        const top = ref.offsetTop;
+        const bottom = top + ref.offsetHeight;
+        if (bottom > scrollTop + 24) {
+          topIdx = i;
+          break;
+        }
+      }
+      return topIdx;
+    };
+
     const detect = () => {
       const scrollTop = el.scrollTop;
       const scrollHeight = el.scrollHeight;
       const clientHeight = el.clientHeight;
       const maxScroll = Math.max(0, scrollHeight - clientHeight);
+      const fraction =
+        maxScroll <= 0 ? 1 : Math.min(1, Math.max(0, scrollTop / maxScroll));
+      const topDataIdx = topDataIndexAtScroll(scrollTop);
+      setReadingViewport({
+        fraction,
+        topSentenceOneBased: data.length ? Math.min(data.length, topDataIdx + 1) : 0,
+        totalSentences: data.length,
+      });
 
       // 스크롤이 맨 아래에 가까우면 마지막 페이지로 (여유 있게 감지)
       const threshold = Math.max(120, clientHeight * 0.15);
@@ -423,7 +530,7 @@ export default function ReadList({
       if (atBottom && boundaries.length > 0) {
         const lastPage = boundaries[boundaries.length - 1].pageNum;
         setSelectedPageIndex(lastPage - 1);
-        saveReadingPosition(lastPage - 1, scrollTop);
+        persistReadingPosition(lastPage - 1, scrollTop, topDataIdx);
         return;
       }
 
@@ -439,7 +546,7 @@ export default function ReadList({
       }
 
       setSelectedPageIndex(currentPage - 1);
-      saveReadingPosition(currentPage - 1, scrollTop);
+      persistReadingPosition(currentPage - 1, scrollTop, topDataIdx);
     };
 
     const onScroll = () => {
@@ -456,7 +563,7 @@ export default function ReadList({
       el.removeEventListener("scroll", onScroll);
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [dataToPage, saveReadingPosition]);
+  }, [dataToPage, data.length, persistReadingPosition]);
 
   // ─── 6. 페이지 이동 ───
   const scrollToPage = useCallback(
@@ -473,7 +580,7 @@ export default function ReadList({
           const targetRect = target.getBoundingClientRect();
           const offset = targetRect.top - containerRect.top + el.scrollTop;
           el.scrollTo({ top: offset, behavior: "smooth" });
-          saveReadingPosition(pageIndex, offset);
+          persistReadingPosition(pageIndex, offset, dataIdx);
         }
         setSelectedPageIndex(pageIndex);
         return;
@@ -482,12 +589,13 @@ export default function ReadList({
       // 폴백
       const el = contentScrollRef.current;
       if (el) {
+        const fallbackIdx = pageToFirstIdx.get(pageNum) ?? 0;
         el.scrollTo({ top: pageIndex * el.clientHeight, behavior: "smooth" });
-        saveReadingPosition(pageIndex, pageIndex * el.clientHeight);
+        persistReadingPosition(pageIndex, pageIndex * el.clientHeight, fallbackIdx);
       }
       setSelectedPageIndex(pageIndex);
     },
-    [pageToFirstIdx, saveReadingPosition]
+    [pageToFirstIdx, persistReadingPosition]
   );
 
   const handlePageChange = useCallback(
@@ -584,34 +692,114 @@ export default function ReadList({
   const jumpToSavedPosition = useCallback(() => {
     const el = contentScrollRef.current;
     if (!el) return;
-    el.scrollTo({ top: savedReadingPosition.scrollTop, behavior: "smooth" });
-    setSelectedPageIndex(savedReadingPosition.pageIndex);
-  }, [savedReadingPosition.pageIndex, savedReadingPosition.scrollTop]);
+    const stored = getReadingProgress(fileName, documentId);
+    const p = {
+      pageIndex: stored?.pageIndex ?? savedReadingPosition.pageIndex,
+      scrollTop: stored?.scrollTop ?? savedReadingPosition.scrollTop,
+      lastDataIndex: stored?.lastDataIndex ?? savedReadingPosition.lastDataIndex,
+    };
+    const idx = p.lastDataIndex;
+    if (idx != null && idx >= 0 && itemRefs.current[idx]) {
+      const ref = itemRefs.current[idx]!;
+      const top = Math.max(0, ref.offsetTop - 12);
+      el.scrollTo({ top, behavior: "smooth" });
+      setSelectedPageIndex(pageIndexFromDataIdx(idx));
+      return;
+    }
+    if (p.scrollTop > 0) {
+      el.scrollTo({ top: p.scrollTop, behavior: "smooth" });
+      setSelectedPageIndex(p.pageIndex);
+    }
+  }, [
+    fileName,
+    documentId,
+    savedReadingPosition.pageIndex,
+    savedReadingPosition.scrollTop,
+    savedReadingPosition.lastDataIndex,
+    pageIndexFromDataIdx,
+  ]);
 
   useEffect(() => {
+    if (data.length === 0) return;
+    const key = `${documentId ?? "local"}:${fileName}`;
     const el = contentScrollRef.current;
     if (!el) return;
-    if (savedReadingPosition.scrollTop <= 0) return;
+
+    if (restoredForKeyRef.current === key) {
+      scrollPersistReadyRef.current = true;
+      return;
+    }
+
+    const progress = getReadingProgress(fileName, documentId);
+    const hasScrollRestore =
+      progress &&
+      (progress.scrollTop > 0 ||
+        (progress.lastDataIndex != null && progress.lastDataIndex >= 0));
+
+    if (!hasScrollRestore) {
+      restoredForKeyRef.current = key;
+      scrollPersistReadyRef.current = true;
+      return;
+    }
+
+    let cancelled = false;
     const timer = window.setTimeout(() => {
-      el.scrollTo({ top: savedReadingPosition.scrollTop, behavior: "auto" });
-      setSelectedPageIndex(savedReadingPosition.pageIndex);
+      if (cancelled || !progress) return;
+      const idx = progress.lastDataIndex;
+      if (idx != null && idx >= 0 && itemRefs.current[idx]) {
+        const ref = itemRefs.current[idx]!;
+        el.scrollTo({ top: Math.max(0, ref.offsetTop - 12), behavior: "auto" });
+        setSelectedPageIndex(pageIndexFromDataIdx(idx));
+      } else if (progress.scrollTop > 0) {
+        el.scrollTo({ top: progress.scrollTop, behavior: "auto" });
+        setSelectedPageIndex(progress.pageIndex);
+      }
+      restoredForKeyRef.current = key;
+      scrollPersistReadyRef.current = true;
+      requestAnimationFrame(() => {
+        el.dispatchEvent(new Event("scroll", { bubbles: false }));
+      });
     }, 30);
-    return () => window.clearTimeout(timer);
-  }, [savedReadingPosition.pageIndex, savedReadingPosition.scrollTop]);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [fileName, documentId, data.length, pageIndexFromDataIdx]);
 
   // 3초마다 현재 위치 자동저장
   useEffect(() => {
     const el = contentScrollRef.current;
     if (!el) return;
     const id = window.setInterval(() => {
-      setReadingProgress(fileName, {
-        pageIndex: selectedPageIndex,
-        scrollTop: el.scrollTop,
-        updatedAt: Date.now(),
-      });
+      if (!scrollPersistReadyRef.current) return;
+      let topIdx = 0;
+      const st = el.scrollTop;
+      for (let i = 0; i < itemRefs.current.length; i++) {
+        const ref = itemRefs.current[i];
+        if (!ref) continue;
+        if (ref.offsetTop + ref.offsetHeight > st + 24) {
+          topIdx = i;
+          break;
+        }
+      }
+      const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+      const scrollFraction =
+        maxScroll <= 0 ? 1 : Math.min(1, Math.max(0, st / maxScroll));
+      setReadingProgress(
+        fileName,
+        {
+          pageIndex: selectedPageIndex,
+          scrollTop: st,
+          updatedAt: Date.now(),
+          scrollFraction,
+          lastDataIndex: topIdx,
+        },
+        documentId
+      );
     }, 3000);
     return () => window.clearInterval(id);
-  }, [fileName, selectedPageIndex]);
+  }, [fileName, documentId, selectedPageIndex]);
 
   // ─── 검색 이동 ───
   /** 검색어가 포함된 data 인덱스 목록 (필터 모드 반영) */
@@ -735,6 +923,12 @@ export default function ReadList({
         onToggleSidebar={handleToggleSidebar}
         filterMode={filterMode}
         onFilterChange={handleFilterChange}
+        readingScrollFraction={readingViewport.fraction}
+        readingSentenceLabel={
+          readingViewport.totalSentences > 0
+            ? `문장 ${readingViewport.topSentenceOneBased} / ${readingViewport.totalSentences}`
+            : undefined
+        }
       />
       <div className={styles.content}>
         {showSidebar && (
@@ -749,18 +943,18 @@ export default function ReadList({
                     }`}
                     onClick={() => scrollToPage(index)}
                     onDoubleClick={() => {
-                      if (pdfDataUrl.current) setPdfModal({ pageNum: index + 1 });
+                      if (sidebarPdfDataUrl) setPdfModal({ pageNum: index + 1 });
                     }}
                     title={
-                      pdfDataUrl.current
+                      sidebarPdfDataUrl
                         ? "더블클릭하면 원본 PDF를 봅니다"
                         : undefined
                     }
                     aria-pressed={index === selectedPageIndex}>
                     <div className={styles.pagePreview}>
-                      {showPdfThumbnails && pdfDataUrl.current ? (
+                      {showPdfThumbnails && sidebarPdfDataUrl ? (
                         <PdfPageThumbnail
-                          pdfDataUrl={pdfDataUrl.current}
+                          pdfDataUrl={sidebarPdfDataUrl}
                           pageNumber={index + 1}
                           className={styles.pagePreviewCanvas}
                         />
@@ -1190,7 +1384,7 @@ export default function ReadList({
         </div>
       )}
 
-      {pdfModal && pdfDataUrl.current && (
+      {pdfModal && sidebarPdfDataUrl && (
         <div className={styles.pdfModalOverlay} onClick={() => setPdfModal(null)}>
           <div className={styles.pdfModal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.pdfModalHeader}>
@@ -1206,7 +1400,7 @@ export default function ReadList({
             </div>
             <iframe
               className={styles.pdfModalFrame}
-              src={`${pdfDataUrl.current}#page=${pdfModal.pageNum}`}
+              src={`${sidebarPdfDataUrl}#page=${pdfModal.pageNum}`}
               title="원본 PDF"
             />
           </div>

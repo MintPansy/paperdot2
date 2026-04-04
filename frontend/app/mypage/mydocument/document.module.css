@@ -126,14 +126,24 @@
 }
 
 .documentInfoProgressValue {
+  position: relative;
   border-radius: 100px;
   background: #fff;
-  display: flex;
   height: 12px;
-  border-radius: 100px;
-  align-items: center;
   flex-shrink: 0;
   flex: 1;
+  overflow: hidden;
+}
+
+.documentInfoProgressFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 100px;
+  background: linear-gradient(90deg, #4787ff, #2563eb);
+  transition: width 0.2s ease-out;
+  max-width: 100%;
 }
 
 .documentTableWrapper {

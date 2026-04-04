@@ -30,7 +30,10 @@
       "Bash(find /c/paperdot2/frontend -type f -name *localStorage* -o -name *storage*)",
       "Bash(find /c/paperdot2/frontend/app/components -type f -name *.tsx -o -name *.ts)",
       "Bash(git pull:*)",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(npm run:*)",
+      "Bash(ls:*)",
+      "Bash(pnpm install:*)"
     ]
   }
 }

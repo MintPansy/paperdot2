@@ -1,15 +1,77 @@
 "use client";
 
-import { deleteDocument, DocumentListItem, getDocumentList } from "@/app/api/document";
+import {
+  deleteDocument,
+  DocumentListItem,
+  getDocumentList,
+  getTranslatedDocumentUnits,
+} from "@/app/api/document";
 import Button from "@/app/components/button/Button";
 import { getApiUrl } from "@/app/config/env";
 import styles from "@/app/mypage/mydocument/document.module.css";
 import { useAccessTokenStore, useLoginStore } from "@/app/store/useLogin";
+import { getReadingProgress } from "@/lib/localStorage";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 
 const API_BASE_URL = getApiUrl();
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result as string);
+    fr.onerror = () => reject(new Error("read"));
+    fr.readAsDataURL(blob);
+  });
+}
+
+async function prepareReadSession(
+  doc: DocumentListItem,
+  accessToken: string
+): Promise<boolean> {
+  const pairs = await getTranslatedDocumentUnits(doc.documentId, accessToken);
+  if (!pairs || pairs.length === 0) {
+    toast.error("번역된 본문을 불러오지 못했습니다.");
+    return false;
+  }
+  const serialized = JSON.stringify(pairs);
+  sessionStorage.setItem("translationPairs", serialized);
+  try {
+    localStorage.setItem("translationPairs", serialized);
+  } catch {
+    /* storage quota */
+  }
+  const idStr = String(doc.documentId);
+  sessionStorage.setItem("documentId", idStr);
+  localStorage.setItem("documentId", idStr);
+  const fileKey = doc.title?.trim() || `document-${doc.documentId}`;
+  sessionStorage.setItem("fileName", fileKey);
+  localStorage.setItem("fileName", fileKey);
+
+  const headers: HeadersInit = {};
+  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/documents/${doc.documentId}/file?inline=true`,
+      { headers, credentials: "include" }
+    );
+    if (res.ok) {
+      const blob = await res.blob();
+      const dataUrl = await blobToDataUrl(blob);
+      try {
+        sessionStorage.setItem("pdfFileData", dataUrl);
+      } catch {
+        toast.warning("PDF 미리보기 데이터가 커서 이 브라우저에 저장하지 못했습니다.");
+      }
+    }
+  } catch {
+    /* PDF 없어도 번역 읽기는 가능 */
+  }
+
+  return true;
+}
 
 export default function MyDocument() {
   const router = useRouter();
@@ -21,9 +83,26 @@ export default function MyDocument() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [openingRead, setOpeningRead] = useState(false);
+
+  const handleOpenDocumentRead = async (doc: DocumentListItem) => {
+    if (!accessToken) {
+      toast.error("로그인이 필요합니다.");
+      return;
+    }
+    setOpeningRead(true);
+    try {
+      const ok = await prepareReadSession(doc, accessToken);
+      if (ok) router.push("/read");
+    } finally {
+      setOpeningRead(false);
+    }
+  };
 
   const handleContinueReading = () => {
-    router.push(`/read`);
+    const doc = documents[0];
+    if (!doc) return;
+    void handleOpenDocumentRead(doc);
   };
 
   useEffect(() => {
@@ -118,6 +197,27 @@ export default function MyDocument() {
   );
   const deleteTargetDoc = documents.find((d) => d.documentId === deleteTargetId);
 
+  const recentProgress = recentDocument
+    ? getReadingProgress(recentDocument.title, String(recentDocument.documentId))
+    : null;
+  const recentProgressPct = (() => {
+    if (!recentProgress || !recentDocument) return 0;
+    if (recentProgress.scrollFraction != null) {
+      return Math.round(
+        Math.min(100, Math.max(0, recentProgress.scrollFraction * 100))
+      );
+    }
+    if (recentDocument.totalPages > 0) {
+      return Math.round(
+        Math.min(
+          100,
+          Math.max(0, ((recentProgress.pageIndex + 1) / recentDocument.totalPages) * 100)
+        )
+      );
+    }
+    return 0;
+  })();
+
   return (
     <main className={styles.container}>
       {/* 삭제 확인 모달 */}
@@ -195,14 +295,20 @@ export default function MyDocument() {
               </p>
               <Button
                 className={styles.documentInfoButton}
-                onClick={handleContinueReading}>
-                이어서 보기
+                onClick={handleContinueReading}
+                disabled={openingRead}>
+                {openingRead ? "불러오는 중…" : "이어서 보기"}
               </Button>
             </div>
             <div className={styles.documentInfoProgressContainer}>
               <p className={styles.documentInfoProgressText}>진행율</p>
-              <div className={styles.documentInfoProgressValue}></div>
-              <p className={styles.progressPercent}>50%</p>
+              <div className={styles.documentInfoProgressValue}>
+                <div
+                  className={styles.documentInfoProgressFill}
+                  style={{ width: `${recentProgressPct}%` }}
+                />
+              </div>
+              <p className={styles.progressPercent}>{recentProgressPct}%</p>
             </div>
           </div>
 
@@ -221,7 +327,13 @@ export default function MyDocument() {
                     <button
                       type="button"
                       className={styles.pdfDocButton}
-                      onClick={() => setSelectedDocumentId(doc.documentId)}>
+                      onClick={() => setSelectedDocumentId(doc.documentId)}
+                      onDoubleClick={(e) => {
+                        e.preventDefault();
+                        void handleOpenDocumentRead(doc);
+                      }}
+                      disabled={openingRead}
+                      title="한 번 클릭: 선택 · 더블클릭: 읽기 화면에서 마지막 위치로 열기">
                       <span className={styles.pdfDocTitle}>{doc.title}</span>
                       <span className={styles.pdfDocMeta}>
                         {new Date(doc.lastTranslatedAt).toLocaleDateString()} ·{" "}
