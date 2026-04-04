@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import Footer from "../footer/Footer";
 import Header from "../header/Header";
+import AuthBootstrap from "@/app/components/auth/AuthBootstrap";
 import Sidebar from "@/app/mypage/sidebar/page";
 import { usePathname, useRouter } from "next/navigation";
 import { useLoginStore } from "@/app/store/useLogin";
@@ -11,6 +12,7 @@ import { toast, ToastContainer } from "react-toastify";
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const userInfo = useLoginStore((state) => state.userInfo);
+  const authHydrated = useLoginStore((state) => state.authHydrated);
   const router = useRouter();
 
   const protectedRoutes =
@@ -18,7 +20,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const hasShownAuthToast = useRef(false);
   useEffect(() => {
-    if (!protectedRoutes || userInfo) {
+    if (!authHydrated || !protectedRoutes || userInfo?.userId) {
       hasShownAuthToast.current = false;
       return;
     }
@@ -28,11 +30,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       hasShownAuthToast.current = true;
     }
     router.replace("/login");
-  }, [protectedRoutes, userInfo, router]);
-
-  if (protectedRoutes && !userInfo) {
-    return <ToastContainer position="top-center" autoClose={1000} />;
-  }
+  }, [protectedRoutes, userInfo?.userId, authHydrated, router]);
 
   const isMypage =
     pathname === "/mypage/mydocument" || pathname === "/mypage/account";
@@ -40,19 +38,46 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const showHeaderFooter = pathname === "/" || isMypage;
   const showHeaderOnly = pathname === "/newdocument";
 
+  let main: React.ReactNode;
+  if (protectedRoutes && !authHydrated) {
+    main = (
+      <>
+        <ToastContainer position="top-center" autoClose={1000} />
+        <div
+          style={{
+            padding: "24px",
+            textAlign: "center",
+            color: "#64748b",
+            fontSize: "0.95rem",
+          }}>
+          세션 확인 중…
+        </div>
+      </>
+    );
+  } else if (protectedRoutes && authHydrated && !userInfo?.userId) {
+    main = <ToastContainer position="top-center" autoClose={1000} />;
+  } else {
+    main = (
+      <>
+        <ToastContainer position="top-center" autoClose={4000} />
+        {(showHeaderFooter || showHeaderOnly) && <Header />}
+        {isMypage ? (
+          <div style={{ display: "flex", width: "100%", height: "100vh" }}>
+            <Sidebar />
+            {children}
+          </div>
+        ) : (
+          <>{children}</>
+        )}
+        {showHeaderFooter && <Footer />}
+      </>
+    );
+  }
+
   return (
     <>
-      <ToastContainer position="top-center" autoClose={4000} />
-      {(showHeaderFooter || showHeaderOnly) && <Header />}
-      {isMypage ? (
-        <div style={{ display: "flex", width: "100%", height: "100vh" }}>
-          <Sidebar />
-          {children}
-        </div>
-      ) : (
-        <>{children}</>
-      )}
-      {showHeaderFooter && <Footer />}
+      <AuthBootstrap />
+      {main}
     </>
   );
 }

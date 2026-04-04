@@ -8,6 +8,10 @@ import { useRouter } from "next/navigation";
 import { getApiUrl } from "@/app/config/env";
 import { toast } from "react-toastify";
 import { useLoginStore } from "@/app/store/useLogin";
+import {
+  clearStoredDocumentSessionForDemo,
+  persistDemoSession,
+} from "@/lib/authSession";
 
 export default function LoginPage() {
   const [redirecting, setRedirecting] = useState<"google" | "kakao" | null>(null);
@@ -19,14 +23,16 @@ export default function LoginPage() {
     // UI 데모만 필요할 때: 백엔드 OAuth를 타지 않고 화면만 데모 유저처럼 진입
     setRedirecting("google");
     setLogin(true);
-    setUserInfoState({
+    const demoProfile = {
       userId: "demo-user",
       profileImageUrl: "/userImage.svg",
       nickname: "데모유저",
       email: "demo@example.com",
-    });
+    };
+    setUserInfoState(demoProfile);
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("fileName", "sample_test.pdf");
+      persistDemoSession(demoProfile);
+      clearStoredDocumentSessionForDemo();
     }
     router.push("/read");
   };

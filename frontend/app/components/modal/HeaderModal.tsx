@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAccessTokenStore, useLoginStore } from "@/app/store/useLogin";
 import { logout } from "@/app/services/logout";
+import { clearDemoSession } from "@/lib/authSession";
 import { useClickOutSide } from "@/app/hooks/useClickOutSide";
 
 export default function HeaderModal({
@@ -43,10 +44,21 @@ export default function HeaderModal({
 
   const handleLogoutClick = async () => {
     try {
-      await logout(accessToken as string);
-      setAccessToken(null);
+      if (userInfo?.userId === "demo-user") {
+        clearDemoSession();
+        setAccessToken(null);
+      } else if (accessToken) {
+        await logout(accessToken);
+        clearDemoSession();
+        setAccessToken(null);
+      } else {
+        clearDemoSession();
+        setAccessToken(null);
+      }
     } finally {
       onLogout?.();
+      setIsOpen(false);
+      router.push("/login");
     }
   };
 

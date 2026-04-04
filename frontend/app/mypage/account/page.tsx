@@ -6,6 +6,7 @@ import Button from "@/app/components/button/Button";
 import Image from "next/image";
 import { useAccessTokenStore, useLoginStore } from "@/app/store/useLogin";
 import { logout } from "@/app/services/logout";
+import { clearDemoSession } from "@/lib/authSession";
 import { useHttps } from "@/app/utils/useHttps";
 import DeleteUserModal from "@/app/components/modal/DeleteUserModal";
 
@@ -13,6 +14,7 @@ export default function MyAccount() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const userInfo = useLoginStore((state) => state.userInfo);
   const setUserInfoState = useLoginStore((state) => state.setUserInfo);
+  const setLogin = useLoginStore((state) => state.setLogin);
   const accessToken = useAccessTokenStore((state) => state.accessToken);
   const setAccessToken = useAccessTokenStore((state) => state.setAccessToken);
   const hasEmail = !!userInfo?.email;
@@ -34,14 +36,10 @@ export default function MyAccount() {
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      // 상태 완전히 초기화 (에러가 발생해도 초기화)
+      clearDemoSession();
       setAccessToken(null);
-      // userInfo를 null로 설정하여 로그인 전 상태로 복귀
-      setUserInfoState({
-        profileImageUrl: "",
-        nickname: "",
-        email: "",
-      });
+      setUserInfoState(null);
+      setLogin(false);
       // 완전히 새로고침하여 로그인 전 헤더 상태로 복귀
       window.location.href = "/";
     }

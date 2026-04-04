@@ -27,6 +27,7 @@ import {
   MOCK_FILE_NAME,
 } from "@/app/data/mockTranslationData";
 import PdfPageThumbnail from "@/app/components/read/pdf/PdfPageThumbnail";
+import { isDemoSessionClient } from "@/lib/authSession";
 
 type TranslationPair = {
   docUnitId: number;
@@ -54,6 +55,10 @@ export default function ReadList({
 }) {
   const [data] = useState<TranslationPair[]>(() => {
     if (typeof window === "undefined") return MOCK_TRANSLATION_PAIRS;
+    if (isDemoSessionClient()) return MOCK_TRANSLATION_PAIRS;
+    if (useLoginStore.getState().userInfo?.userId === "demo-user") {
+      return MOCK_TRANSLATION_PAIRS;
+    }
     try {
       // sessionStorage 우선, 없으면 localStorage fallback
       const stored =
@@ -71,12 +76,8 @@ export default function ReadList({
 
   const [fileName] = useState(() => {
     if (typeof window === "undefined") return MOCK_FILE_NAME;
-    const isDemoUser =
-      useLoginStore.getState().userInfo?.userId === "demo-user";
-    if (isDemoUser) {
-      const sid = sessionStorage.getItem("documentId");
-      const sfn = sessionStorage.getItem("fileName");
-      if (sid && sfn?.trim()) return sfn.trim();
+    if (isDemoSessionClient()) return MOCK_FILE_NAME;
+    if (useLoginStore.getState().userInfo?.userId === "demo-user") {
       return MOCK_FILE_NAME;
     }
     const stored =
@@ -85,11 +86,20 @@ export default function ReadList({
     return stored?.trim() || MOCK_FILE_NAME;
   });
 
+  const documentIdInitRef = useRef(false);
   const documentIdRef = useRef<string | null>(null);
-  if (typeof window !== "undefined" && !documentIdRef.current) {
-    documentIdRef.current =
-      sessionStorage.getItem("documentId") ??
-      localStorage.getItem("documentId");
+  if (typeof window !== "undefined" && !documentIdInitRef.current) {
+    documentIdInitRef.current = true;
+    if (
+      isDemoSessionClient() ||
+      useLoginStore.getState().userInfo?.userId === "demo-user"
+    ) {
+      documentIdRef.current = null;
+    } else {
+      documentIdRef.current =
+        sessionStorage.getItem("documentId") ??
+        localStorage.getItem("documentId");
+    }
   }
   const documentId = documentIdRef.current;
 
@@ -147,7 +157,9 @@ export default function ReadList({
   useEffect(() => {
     if (sidebarPdfDataUrl) return;
     if (!documentId || !accessToken) return;
-    const isDemo = useLoginStore.getState().userInfo?.userId === "demo-user";
+    const isDemo =
+      isDemoSessionClient() ||
+      useLoginStore.getState().userInfo?.userId === "demo-user";
     if (isDemo) return;
 
     let cancelled = false;
