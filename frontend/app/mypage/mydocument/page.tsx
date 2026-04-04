@@ -12,7 +12,7 @@ import styles from "@/app/mypage/mydocument/document.module.css";
 import { useAccessTokenStore, useLoginStore } from "@/app/store/useLogin";
 import { getReadingProgress } from "@/lib/localStorage";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
@@ -73,8 +73,21 @@ async function prepareReadSession(
   return true;
 }
 
+/** 로컬에 저장된 마지막 읽기 시각 기준(최근 조회 우선). 없으면 번역 완료 시각. */
+function sortDocumentsByLastViewed(docs: DocumentListItem[]): DocumentListItem[] {
+  return [...docs].sort((a, b) => {
+    const ua = getReadingProgress(a.title, String(a.documentId))?.updatedAt ?? 0;
+    const ub = getReadingProgress(b.title, String(b.documentId))?.updatedAt ?? 0;
+    if (ua !== ub) return ub - ua;
+    const ta = new Date(a.lastTranslatedAt).getTime();
+    const tb = new Date(b.lastTranslatedAt).getTime();
+    return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+  });
+}
+
 export default function MyDocument() {
   const router = useRouter();
+  const pathname = usePathname();
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
   const userData = useLoginStore((state) => state.userInfo);
@@ -109,14 +122,16 @@ export default function MyDocument() {
     const fetchDocuments = async () => {
       const response = await getDocumentList(userData?.userId as string);
       console.log("response", response);
-      const newDocs = response.map((doc: DocumentListItem) => ({
-        documentId: doc.documentId,
-        title: doc.title,
-        languageSrc: doc.languageSrc,
-        languageTgt: doc.languageTgt,
-        totalPages: doc.totalPages,
-        lastTranslatedAt: doc.lastTranslatedAt,
-      }));
+      const newDocs = sortDocumentsByLastViewed(
+        response.map((doc: DocumentListItem) => ({
+          documentId: doc.documentId,
+          title: doc.title,
+          languageSrc: doc.languageSrc,
+          languageTgt: doc.languageTgt,
+          totalPages: doc.totalPages,
+          lastTranslatedAt: doc.lastTranslatedAt,
+        }))
+      );
       setDocuments(newDocs);
       setSelectedDocumentId((prev) => {
         if (prev && newDocs.some((doc) => doc.documentId === prev)) return prev;
@@ -125,6 +140,14 @@ export default function MyDocument() {
     };
     fetchDocuments();
   }, [userData?.userId]);
+
+  // 읽기 화면 등에서 돌아왔을 때 로컬의 마지막 읽기 시각 반영해 순서 갱신
+  useEffect(() => {
+    if (pathname !== "/mypage/mydocument") return;
+    setDocuments((prev) =>
+      prev.length === 0 ? prev : sortDocumentsByLastViewed(prev)
+    );
+  }, [pathname]);
 
   // 선택된 문서 PDF를 blob URL로 fetch (Bearer 토큰 포함)
   useEffect(() => {
@@ -173,7 +196,9 @@ export default function MyDocument() {
     try {
       await deleteDocument(deleteTargetId, accessToken ?? undefined);
       setDocuments((prev) => {
-        const next = prev.filter((d) => d.documentId !== deleteTargetId);
+        const next = sortDocumentsByLastViewed(
+          prev.filter((d) => d.documentId !== deleteTargetId)
+        );
         if (selectedDocumentId === deleteTargetId) {
           setSelectedDocumentId(next.length > 0 ? next[0].documentId : null);
         }
