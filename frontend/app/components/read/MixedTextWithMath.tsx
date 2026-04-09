@@ -188,6 +188,27 @@ function normalizePdfEquationArtifacts(input: string): string {
   return s;
 }
 
+function isolateMathAsBlocks(input: string): string {
+  let s = input;
+
+  // 1) \(...\), \[...\], $...$를 $$...$$ 블록으로 통일
+  s = s
+    .replace(/\\\[((?:.|\n)*?)\\\]/g, "$$$$ $1 $$$$")
+    .replace(/\\\(((?:.|\n)*?)\\\)/g, "$$$$ $1 $$$$")
+    .replace(/\$(?!\$)([^$\n]+?)\$/g, "$$$$ $1 $$$$");
+
+  // 2) 이미 존재하는 $$...$$를 포함해 모든 블록 수식을 독립 행으로 분리
+  s = s.replace(/\$\$((?:.|\n)*?)\$\$/g, (_, body: string) => {
+    const trimmed = body.trim();
+    if (!trimmed) return "";
+    return `\n$$${trimmed}$$\n`;
+  });
+
+  // 3) 과도한 연속 개행 정리
+  s = s.replace(/\n{3,}/g, "\n\n");
+  return s.trim();
+}
+
 function normalizeUnicodeMathToLatex(input: string): string {
   if (!input) return input;
 
@@ -213,6 +234,8 @@ function normalizeUnicodeMathToLatex(input: string): string {
 
   // 03page.pdf 계열처럼 수식이 줄 단위로 분리된 텍스트를 우선 block 수식으로 감쌈
   s = wrapEquationLikeLines(s);
+  // 명시적 수식 구간을 독립 block 행으로 강제 분리 (ko/en 공통)
+  s = isolateMathAsBlocks(s);
 
   // 한글/CJK 문장은 자동 수식 래핑을 하지 않음.
   // 번역문 가시성을 최우선으로 보장하고, 명시적 구분자($...$, $$...$$, \(...\), \[...\])만 렌더링.
