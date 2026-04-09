@@ -156,6 +156,62 @@
   font-weight: 500;
 }
 
+.loadingStage {
+  color: #1e3a8a;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.loadingEta {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.previewBox {
+  width: min(560px, 92%);
+  max-height: 200px;
+  overflow: auto;
+  border: 1px solid #dbe3f1;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.previewTitle {
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.previewEmpty {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.previewItem {
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.previewSource {
+  color: #1e3a8a;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+
+.previewTarget {
+  color: #334155;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .viewResultButton {
   margin-top: 24px;
   width: 100%;

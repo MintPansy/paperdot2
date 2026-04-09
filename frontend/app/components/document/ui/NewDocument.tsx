@@ -39,6 +39,25 @@ interface TranslationPair {
   sourcePage?: number;
 }
 
+type ProgressPoint = {
+  t: number;
+  translated: number;
+  total: number;
+};
+
+function formatEta(seconds: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) {
+    return "남은 시간 계산 중...";
+  }
+  const rounded = Math.round(seconds);
+  const h = Math.floor(rounded / 3600);
+  const m = Math.floor((rounded % 3600) / 60);
+  const s = rounded % 60;
+  if (h > 0) return `약 ${h}시간 ${m}분 남음`;
+  if (m > 0) return `약 ${m}분 ${s}초 남음`;
+  return `약 ${s}초 남음`;
+}
+
 export default function NewDocumentPage() {
   const [, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
@@ -54,6 +73,8 @@ export default function NewDocumentPage() {
     failed: number;
     total: number;
   } | null>(null);
+  const [progressHistory, setProgressHistory] = useState<ProgressPoint[]>([]);
+  const [previewCursor, setPreviewCursor] = useState(0);
   const [, setTranslationStatus] = useState<string | null>(null);
   const [translatedText, setTranslatedText] = useState<TranslationPair[]>([]);
   const [batchFailures, setBatchFailures] = useState<
@@ -79,6 +100,8 @@ export default function NewDocumentPage() {
     setTranslationStatus(null);
     setTranslatedText([]);
     setTranslationSnapshot(null);
+    setProgressHistory([]);
+    setPreviewCursor(0);
     setBatchFailures([]);
     setTranslationError(null);
   }, []);
@@ -145,6 +168,8 @@ export default function NewDocumentPage() {
   const handleRemoveFile = () => {
     setUploadingFiles([]);
     setTranslationSnapshot(null);
+    setProgressHistory([]);
+    setPreviewCursor(0);
     setTranslationError(null);
     setBatchFailures([]);
   };
@@ -207,6 +232,7 @@ export default function NewDocumentPage() {
         setDocument(null);
         setTranslatedText([]);
         setTranslationSnapshot(null);
+        setProgressHistory([]);
         setUploadingFiles([]);
       }
     };
@@ -256,6 +282,8 @@ export default function NewDocumentPage() {
         setIsTranslating(true);
         setTranslationError(null);
         setTranslationProgress(null);
+        setProgressHistory([]);
+        setPreviewCursor(0);
         await postTranslation(document.documentId, accessToken);
         if (cancelledRef.current) return;
 
@@ -275,6 +303,13 @@ export default function NewDocumentPage() {
             ).length;
             const total = data.length;
             setTranslationProgress({ translated: translatedCount, total });
+            setProgressHistory((prev) => {
+              const next = [
+                ...prev,
+                { t: Date.now(), translated: translatedCount, total },
+              ];
+              return next.length > 8 ? next.slice(next.length - 8) : next;
+            });
             setTranslationSnapshot({
               translated: progress?.translated ?? translatedCount,
               failed: progress?.failed ?? 0,
@@ -319,10 +354,10 @@ export default function NewDocumentPage() {
                     const finalData = await getTranslation(document.documentId, accessToken);
                     const finalCount = Array.isArray(finalData)
                       ? finalData.filter(
-                          (item) =>
-                            item.translatedText != null &&
-                            String(item.translatedText).trim() !== ""
-                        ).length
+                        (item) =>
+                          item.translatedText != null &&
+                          String(item.translatedText).trim() !== ""
+                      ).length
                       : 0;
                     if (finalCount > 0) {
                       applyResult(finalData);
@@ -334,12 +369,14 @@ export default function NewDocumentPage() {
                       setDocument(null);
                       setUploadingFiles([]);
                       setTranslationSnapshot(null);
+                      setProgressHistory([]);
                     }
                   } catch {
                     setTranslationError("번역 결과 조회에 실패했어요.");
                     setDocument(null);
                     setUploadingFiles([]);
                     setTranslationSnapshot(null);
+                    setProgressHistory([]);
                   }
                   setIsTranslating(false);
                 }, 1500);
@@ -380,6 +417,7 @@ export default function NewDocumentPage() {
           setDocument(null);
           setUploadingFiles([]);
           setTranslationSnapshot(null);
+          setProgressHistory([]);
         }
       }
     };
@@ -398,15 +436,76 @@ export default function NewDocumentPage() {
   }, [document?.documentId]);
 
   const isTranslationLoading =
-    document != null && translatedText.length === 0 && isTranslating;
+    document != null && isTranslating;
   const translationReady =
     document != null &&
     !isTranslating &&
     translationSnapshot != null &&
     translationSnapshot.total > 0 &&
     translationSnapshot.translated + translationSnapshot.failed >=
-      translationSnapshot.total &&
+    translationSnapshot.total &&
     translationSnapshot.translated > 0;
+  const translationPercent =
+    translationProgress != null && translationProgress.total > 0
+      ? Math.min(
+        100,
+        Math.max(
+          0,
+          Math.round(
+            (100 * translationProgress.translated) / translationProgress.total
+          )
+        )
+      )
+      : null;
+  const visibleProgressPercent =
+    isTranslating && translationPercent != null
+      ? translationPercent
+      : Math.round(uploadingFiles[0]?.progress ?? 0);
+  const stageLabel =
+    document == null
+      ? "업로드 중..."
+      : !isTranslating
+      ? "번역 완료"
+      : translationProgress == null || translationProgress.total === 0
+      ? "텍스트 추출/분석 중..."
+      : translationProgress.translated >= translationProgress.total
+      ? "결과 정리 중..."
+      : "번역 중...";
+  const etaSeconds =
+    progressHistory.length >= 2
+      ? (() => {
+          const first = progressHistory[0];
+          const last = progressHistory[progressHistory.length - 1];
+          const dt = (last.t - first.t) / 1000;
+          const done = last.translated - first.translated;
+          const remaining = Math.max(0, last.total - last.translated);
+          if (dt <= 0 || done <= 0 || remaining <= 0) return null;
+          const rate = done / dt;
+          if (!Number.isFinite(rate) || rate <= 0) return null;
+          return Math.min(36000, Math.max(1, remaining / rate));
+        })()
+      : null;
+  const translatedPreviewItems = translatedText.filter(
+    (item) => (item.translatedText ?? "").trim() !== ""
+  );
+  const previewItems =
+    translatedPreviewItems.length === 0
+      ? []
+      : Array.from(
+          { length: Math.min(2, translatedPreviewItems.length) },
+          (_, idx) =>
+            translatedPreviewItems[
+              (previewCursor + idx) % translatedPreviewItems.length
+            ]
+        );
+
+  useEffect(() => {
+    if (!isTranslating || translatedPreviewItems.length <= 1) return;
+    const id = window.setInterval(() => {
+      setPreviewCursor((prev) => (prev + 1) % translatedPreviewItems.length);
+    }, 2500);
+    return () => window.clearInterval(id);
+  }, [isTranslating, translatedPreviewItems.length]);
 
   return (
     <main className={styles.container}>
@@ -415,7 +514,7 @@ export default function NewDocumentPage() {
           <div className={styles.pageHeader}>
             <h1 className={styles.pageTitle}>번역할 파일을 업로드 해주세요.</h1>
             <p className={styles.pageSubtitle}>
-              페이퍼닷이 번역하고, 한 줄 한 줄 읽기 쉽게 정리해드릴게요.
+              스콜라닷이 번역하고, 한 줄 한 줄 읽기 쉽게 정리해드릴게요.
             </p>
           </div>
 
@@ -424,16 +523,34 @@ export default function NewDocumentPage() {
               {isTranslationLoading && (
                 <div className={styles.loadingOverlayOnTop}>
                   <div className={styles.loadingSpinner} aria-hidden />
+                  <p className={styles.loadingStage}>{stageLabel}</p>
                   <p className={styles.loadingText}>
                     {translationProgress != null
-                      ? `${translationProgress.translated}/${
-                          translationProgress.total
-                        } (${Math.round(
-                          (100 * translationProgress.translated) /
-                            translationProgress.total
-                        )}%) 번역 중...`
+                      ? `${translationProgress.translated}/${translationProgress.total} (${translationPercent ?? 0}%) 번역 중...`
                       : "번역 중입니다. 잠시만 기다려주세요..."}
                   </p>
+                  <p className={styles.loadingEta}>{formatEta(etaSeconds)}</p>
+                  <div className={styles.previewBox}>
+                    <p className={styles.previewTitle}>미리보기</p>
+                    {previewItems.length === 0 && (
+                      <p className={styles.previewEmpty}>
+                        번역 예시 준비 중...
+                      </p>
+                    )}
+                    {previewItems.map((pair) => (
+                      <div
+                        key={pair.docUnitId}
+                        className={styles.previewItem}
+                      >
+                        <p className={styles.previewSource}>
+                          {pair.sourceText}
+                        </p>
+                        <p className={styles.previewTarget}>
+                          {pair.translatedText}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className={styles.uploadingFilesWrapper}>
@@ -450,12 +567,12 @@ export default function NewDocumentPage() {
                       <div
                         className={styles.progressBar}
                         style={{
-                          width: `${uploadingFiles[0].progress}%`,
+                          width: `${visibleProgressPercent}%`,
                         }}
                       />
                     </div>
                     <p className={styles.progressPercent}>
-                      {Math.round(uploadingFiles[0].progress)}%
+                      {visibleProgressPercent}%
                     </p>
                   </div>
                 </div>
