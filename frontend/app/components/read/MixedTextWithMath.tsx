@@ -384,11 +384,9 @@ function renderSegments(
 ): ReactNode {
   return segments.map((seg, idx) => {
     if (seg.kind === "math") {
-      return seg.displayMode ? (
-        <BlockMath key={`m-${idx}`} latex={seg.value} />
-      ) : (
-        <InlineMath key={`m-${idx}`} latex={seg.value} />
-      );
+      // 읽기 가독성을 위해 inline/display 구분자와 관계없이 수식은 별도 행(block)으로 렌더링
+      // 결과: "텍스트 + 수식 + 텍스트"가 시각적으로 명확하게 분리됨
+      return <BlockMath key={`m-${idx}`} latex={seg.value} />;
     }
     // 수식이 아닌 텍스트에만 공백 복원 적용
     const displayText = restoreWordSpacing(seg.value);

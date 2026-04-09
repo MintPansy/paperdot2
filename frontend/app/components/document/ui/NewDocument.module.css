@@ -212,6 +212,14 @@
   line-height: 1.45;
 }
 
+.previewMark {
+  background-color: rgba(255, 235, 59, 0.55);
+}
+
+.previewMarkActive {
+  background-color: rgba(251, 146, 60, 0.8);
+}
+
 .viewResultButton {
   margin-top: 24px;
   width: 100%;

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import styles from "./NewDocument.module.css";
 import { formatFileSize } from "@/app/utils/useFormatFileSize";
+import MixedTextWithMath from "@/app/components/read/MixedTextWithMath";
 import {
   getTranslation,
   getTranslationProgress,
@@ -543,10 +544,18 @@ export default function NewDocumentPage() {
                         className={styles.previewItem}
                       >
                         <p className={styles.previewSource}>
-                          {pair.sourceText}
+                          <MixedTextWithMath
+                            text={pair.sourceText ?? ""}
+                            markClassName={styles.previewMark}
+                            markActiveClassName={styles.previewMarkActive}
+                          />
                         </p>
                         <p className={styles.previewTarget}>
-                          {pair.translatedText}
+                          <MixedTextWithMath
+                            text={pair.translatedText ?? ""}
+                            markClassName={styles.previewMark}
+                            markActiveClassName={styles.previewMarkActive}
+                          />
                         </p>
                       </div>
                     ))}
