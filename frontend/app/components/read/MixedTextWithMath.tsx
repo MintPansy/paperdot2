@@ -20,7 +20,7 @@ const COMPLEX_MATH_RE =
 
 type Span = { start: number; end: number };
 
-function mergeNearbySpans(spans: Span[], maxGap = 8): Span[] {
+function mergeNearbySpans(spans: Span[], maxGap = 2): Span[] {
   if (spans.length === 0) return spans;
   spans.sort((a, b) => a.start - b.start);
   const merged: Span[] = [spans[0]];
@@ -36,44 +36,45 @@ function mergeNearbySpans(spans: Span[], maxGap = 8): Span[] {
   return merged;
 }
 
-function expandSpan(s: string, span: Span): Span {
-  const allowed = /[A-Za-z0-9_|\\^{}()[\]\-+*/=.,:;'<>\s]/;
-  let start = span.start;
-  let end = span.end;
+const MATH_EXTRACT_PATTERNS: RegExp[] = [
+  // 1) \sum, \int, \frac 등 핵심 명령 + 뒤따르는 script/brace
+  /\\(?:sum|int|frac|langle|rangle|sqrt|lim|to|infty|left|right)(?:\s*(?:_\{[^}]{0,80}\}|\^\{[^}]{0,80}\}|_[A-Za-z0-9]|[A-Za-z0-9]|\{[^}]{0,80}\}|\([^)]{0,80}\)|\[[^\]]{0,80}\]|[+\-*/=|.,])){0,40}/g,
+  // 2) ket/bra 형태
+  /\|[A-Za-z][A-Za-z0-9_{}\-]{0,40}\\rangle/g,
+  /\\langle\s*[A-Za-z0-9_{}|\\\-\s]{0,80}\\rangle/g,
+  // 3) 위첨자/아래첨자 중심 표현
+  /[A-Za-z0-9]+(?:_\{[^}]{1,60}\}|_[A-Za-z0-9])(?:\^\{[^}]{1,60}\}|\^[A-Za-z0-9])?/g,
+  /[A-Za-z0-9]+(?:\^\{[^}]{1,60}\}|\^[A-Za-z0-9])(?:_\{[^}]{1,60}\}|_[A-Za-z0-9])?/g,
+];
 
-  while (start > 0 && allowed.test(s[start - 1] ?? "")) {
-    // 문장 시작/강한 구분자에서 멈춰 과도한 확장을 방지
-    const ch = s[start - 1];
-    if (ch === "\n") break;
-    start--;
-  }
-
-  while (end < s.length && allowed.test(s[end] ?? "")) {
-    const ch = s[end];
-    // 다음 문장으로 번지는 것 방지
-    if (ch === "\n") break;
-    end++;
-  }
-
-  // 양 끝 공백/구두점 정리
-  while (start < end && /\s/.test(s[start] ?? "")) start++;
-  while (end > start && /\s/.test(s[end - 1] ?? "")) end--;
-  while (end > start && /[.,;:!?]/.test(s[end - 1] ?? "")) end--;
-
-  return { start, end };
-}
-
-function autoWrapMathSpans(input: string): string {
+function collectMathSpans(input: string): Span[] {
   const spans: Span[] = [];
-  const normalized = input;
-  for (const m of normalized.matchAll(MATH_TOKEN_RE)) {
+  for (const re of MATH_EXTRACT_PATTERNS) {
+    for (const m of input.matchAll(re)) {
+      if (m.index == null) continue;
+      spans.push({ start: m.index, end: m.index + m[0].length });
+    }
+  }
+  for (const m of input.matchAll(MATH_TOKEN_RE)) {
     if (m.index == null) continue;
     spans.push({ start: m.index, end: m.index + m[0].length });
   }
+  return spans;
+}
+
+function autoWrapMathSpans(input: string): string {
+  const normalized = input;
+  const spans = collectMathSpans(normalized);
   if (spans.length === 0) return input;
 
-  const merged = mergeNearbySpans(spans).map((sp) => expandSpan(normalized, sp));
-  const filtered = merged.filter((sp) => sp.end - sp.start >= 3);
+  const merged = mergeNearbySpans(spans);
+  const filtered = merged.filter((sp) => {
+    const body = normalized.slice(sp.start, sp.end).trim();
+    if (body.length < 2) return false;
+    // 단순 영어 단어만 있는 경우 제외 (문장 전체 수식화 방지)
+    if (/^[A-Za-z\s]+$/.test(body)) return false;
+    return true;
+  });
   if (filtered.length === 0) return input;
 
   let out = "";
@@ -87,6 +88,17 @@ function autoWrapMathSpans(input: string): string {
       pos = sp.end;
       continue;
     }
+
+    // 길게 잡혔는데 수학 기호가 부족하면 오탐으로 보고 원문 유지
+    const mathSignalCount = (
+      body.match(/\\|[_^{}|=+\-*/]|∑|∫|√|⟨|⟩/g) ?? []
+    ).length;
+    if (body.length > 120 && mathSignalCount < 6) {
+      out += normalized.slice(sp.start, sp.end);
+      pos = sp.end;
+      continue;
+    }
+
     // 복잡한 수식은 block으로 분리해 파싱 안정성과 가독성을 높임
     const blockLike =
       body.length > 90 ||
