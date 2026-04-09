@@ -835,8 +835,8 @@ export default function ReadList({
     const q = searchQuery.trim().toLowerCase();
     if (!q) return [];
     return data.reduce<number[]>((acc, item, idx) => {
-      const inSrc = item.sourceText.toLowerCase().includes(q);
-      const inTgt = item.translatedText.toLowerCase().includes(q);
+      const inSrc = (item.sourceText ?? "").toLowerCase().includes(q);
+      const inTgt = (item.translatedText ?? "").toLowerCase().includes(q);
       const visible =
         filterMode === "english" ? inSrc :
         filterMode === "korean"  ? inTgt :

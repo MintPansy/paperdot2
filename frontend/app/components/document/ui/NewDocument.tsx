@@ -219,8 +219,13 @@ export default function NewDocumentPage() {
 
     const applyResult = (list: TranslationPair[]) => {
       if (list.length === 0) return;
-      setTranslatedText(list);
-      const serialized = JSON.stringify(list);
+      // translatedText가 null/undefined인 항목은 빈 문자열로 정규화
+      const normalized = list.map((item) => ({
+        ...item,
+        translatedText: item.translatedText ?? "",
+      }));
+      setTranslatedText(normalized);
+      const serialized = JSON.stringify(normalized);
       sessionStorage.setItem("translationPairs", serialized);
       try { localStorage.setItem("translationPairs", serialized); } catch { /* 용량 초과 무시 */ }
       setUploadingFiles((prev) =>
@@ -291,8 +296,42 @@ export default function NewDocumentPage() {
                 pollingIntervalRef.current = null;
               }
               setTranslationProgress(null);
-              applyResult(data);
-              setIsTranslating(false);
+
+              if (translatedCount === 0) {
+                // progress는 완료됐지만 번역 텍스트가 없음
+                // → 짧은 지연 후 1회 재조회해 race condition 보정
+                setTimeout(async () => {
+                  if (cancelledRef.current) return;
+                  try {
+                    const finalData = await getTranslation(document.documentId, accessToken);
+                    const finalCount = Array.isArray(finalData)
+                      ? finalData.filter(
+                          (item) =>
+                            item.translatedText != null &&
+                            String(item.translatedText).trim() !== ""
+                        ).length
+                      : 0;
+                    if (finalCount > 0) {
+                      applyResult(finalData);
+                    } else {
+                      // 재조회해도 번역이 없으면 에러 표시
+                      setTranslationError(
+                        "번역 결과를 가져오지 못했어요. 잠시 후 다시 시도해주세요."
+                      );
+                      setDocument(null);
+                      setUploadingFiles([]);
+                    }
+                  } catch {
+                    setTranslationError("번역 결과 조회에 실패했어요.");
+                    setDocument(null);
+                    setUploadingFiles([]);
+                  }
+                  setIsTranslating(false);
+                }, 1500);
+              } else {
+                applyResult(data);
+                setIsTranslating(false);
+              }
             }
           } catch (e) {
             if (!cancelledRef.current) console.error("[번역 결과 조회]", e);

@@ -79,7 +79,15 @@ export const getTranslatedDocument = async (
       throw new Error("번역된 문서를 가져오는데 실패했습니다!");
     }
 
-    const data: TranslatedDocumentUnit[] = await response.json();
+    const raw = await response.json();
+    // 백엔드가 배열 직접 반환 | { data: [...] } | { content: [...] } 형태 모두 처리
+    const data: TranslatedDocumentUnit[] = Array.isArray(raw)
+      ? raw
+      : Array.isArray(raw?.data)
+      ? raw.data
+      : Array.isArray(raw?.content)
+      ? raw.content
+      : [];
     return data;
   } catch (error) {
     // 네트워크 오류나 기타 에러는 그대로 throw

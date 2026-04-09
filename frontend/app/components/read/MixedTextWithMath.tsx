@@ -290,8 +290,13 @@ export default function MixedTextWithMath({
   markClassName,
   markActiveClassName,
 }: MixedTextWithMathProps) {
-  const normalized = useMemo(() => normalizeUnicodeMathToLatex(text), [text]);
-  const rawSegments = useMemo(() => splitMathSegments(normalized), [normalized]);
+  // null/undefined 방어: 렌더링 skip
+  const safeText = text ?? "";
+  const normalized = useMemo(() => normalizeUnicodeMathToLatex(safeText), [safeText]);
+  const rawSegments = useMemo(
+    () => (normalized ? splitMathSegments(normalized) : []),
+    [normalized]
+  );
   const segments = useMemo(() => upgradeComplexInlineMath(rawSegments), [rawSegments]);
   return (
     <>
