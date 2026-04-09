@@ -33,6 +33,7 @@ import {
 } from "@/app/services/document";
 import PdfPageThumbnail from "@/app/components/read/pdf/PdfPageThumbnail";
 import MixedTextWithMath from "@/app/components/read/MixedTextWithMath";
+import { LatexViewer } from "@/app/components/math";
 import { isDemoSessionClient } from "@/lib/authSession";
 
 type TranslationPair = {
@@ -94,6 +95,17 @@ function toTranslationPairList(raw: TranslatedDocumentUnit[]): TranslationPair[]
     translatedText: item.translatedText ?? "",
     sourcePage: item.sourcePage,
   }));
+}
+
+function isStructuredLatexDocument(text: string): boolean {
+  const t = (text ?? "").trim();
+  if (!t) return false;
+  return (
+    t.includes("\\begin{equation}") ||
+    t.includes("\\end{equation}") ||
+    t.includes("\\section{") ||
+    t.includes("\\subsection{")
+  );
 }
 
 export default function ReadList({
@@ -281,6 +293,27 @@ export default function ReadList({
       return "번역 없음";
     },
     [translationLoadState]
+  );
+
+  const renderMathContent = useCallback(
+    (
+      text: string,
+      isSearchActive: boolean
+    ) => {
+      if (isStructuredLatexDocument(text)) {
+        return <LatexViewer source={text} />;
+      }
+      return (
+        <MixedTextWithMath
+          text={text}
+          searchQuery={searchQuery.trim() ? searchQuery : undefined}
+          isSearchActive={isSearchActive}
+          markClassName={styles.highlight}
+          markActiveClassName={styles.highlightActive}
+        />
+      );
+    },
+    [searchQuery]
   );
 
   useEffect(() => {
@@ -1132,11 +1165,7 @@ export default function ReadList({
                                   key={`${x.docUnitId}-ko`}
                                   className={styles.pagePreviewRow}>
                                   <p className={styles.pagePreviewTextText}>
-                                    <MixedTextWithMath
-                                      text={getTranslatedDisplayText(x)}
-                                      markClassName={styles.highlight}
-                                      markActiveClassName={styles.highlightActive}
-                                    />
+                                    {renderMathContent(getTranslatedDisplayText(x), false)}
                                   </p>
                                 </div>,
                               ])}
@@ -1336,15 +1365,7 @@ export default function ReadList({
                         : undefined
                     }
                   >
-                    <MixedTextWithMath
-                      text={item.sourceText}
-                      searchQuery={
-                        searchQuery.trim() ? searchQuery : undefined
-                      }
-                      isSearchActive={isSearchActive}
-                      markClassName={styles.highlight}
-                      markActiveClassName={styles.highlightActive}
-                    />
+                    {renderMathContent(item.sourceText, isSearchActive)}
                   </p>
                   <p
                     className={[
@@ -1375,15 +1396,7 @@ export default function ReadList({
                         : undefined
                     }
                   >
-                    <MixedTextWithMath
-                      text={getTranslatedDisplayText(item)}
-                      searchQuery={
-                        searchQuery.trim() ? searchQuery : undefined
-                      }
-                      isSearchActive={isSearchActive}
-                      markClassName={styles.highlight}
-                      markActiveClassName={styles.highlightActive}
-                    />
+                    {renderMathContent(getTranslatedDisplayText(item), isSearchActive)}
                   </p>
                 </>
               )}
@@ -1412,15 +1425,7 @@ export default function ReadList({
                       : undefined
                   }
                 >
-                  <MixedTextWithMath
-                    text={item.sourceText}
-                    searchQuery={
-                      searchQuery.trim() ? searchQuery : undefined
-                    }
-                    isSearchActive={isSearchActive}
-                    markClassName={styles.highlight}
-                    markActiveClassName={styles.highlightActive}
-                  />
+                  {renderMathContent(item.sourceText, isSearchActive)}
                 </p>
               )}
               {filterMode === "korean" && (
@@ -1453,15 +1458,7 @@ export default function ReadList({
                       : undefined
                   }
                 >
-                  <MixedTextWithMath
-                    text={getTranslatedDisplayText(item)}
-                    searchQuery={
-                      searchQuery.trim() ? searchQuery : undefined
-                    }
-                    isSearchActive={isSearchActive}
-                    markClassName={styles.highlight}
-                    markActiveClassName={styles.highlightActive}
-                  />
+                  {renderMathContent(getTranslatedDisplayText(item), isSearchActive)}
                 </p>
               )}
             </div>
