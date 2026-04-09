@@ -5,7 +5,9 @@
       "Bash(dir:*)",
       "Bash(copy:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -A 5 -B 2 \"\\\\$\\\\$\\\\|\\\\\\\\\\\\\\\\\\\\[\\\\|\\\\\\\\\\\\\\\\\\\\\\(\" /c/paperdot2/frontend/app/components/read/MixedTextWithMath.tsx)"
     ]
   }
 }

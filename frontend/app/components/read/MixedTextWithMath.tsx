@@ -102,17 +102,7 @@ function autoWrapMathSpans(input: string): string {
 function normalizeUnicodeMathToLatex(input: string): string {
   if (!input) return input;
 
-  // 이미 LaTeX 구분자가 있으면 그대로 둠
-  if (input.includes("$") || input.includes("\\(") || input.includes("\\[")) {
-    return input;
-  }
-  const hasUnicodeMath = UNICODE_MATH_HINT_RE.test(input);
-  const hasLatexCmd = LATEX_CMD_HINT_RE.test(input);
-  if (!hasUnicodeMath && !hasLatexCmd) {
-    return input;
-  }
-
-  // 1) 흔한 유니코드 수학 기호를 LaTeX로 치환
+  // 1) 유니코드 수학 기호를 LaTeX로 치환 (구분자 유무와 관계없이 항상 적용)
   let s = input
     .replaceAll("⟨", "\\langle ")
     .replaceAll("⟩", " \\rangle")
@@ -130,8 +120,38 @@ function normalizeUnicodeMathToLatex(input: string): string {
     // PDF 추출에서 자주 섞이는 minus 기호 정규화
     .replaceAll("−", "-");
 
-  // 2) 문장 내 LaTeX 패턴 구간을 자동 탐지해 inline/block 구분자로 감싸기
+  // 이미 LaTeX 구분자가 있으면 auto-wrap 건너뜀
+  // (복잡한 inline → block 업그레이드는 upgradeComplexInlineMath에서 처리)
+  if (s.includes("$") || s.includes("\\(") || s.includes("\\[")) {
+    return s;
+  }
+
+  const hasUnicodeMath = UNICODE_MATH_HINT_RE.test(s);
+  const hasLatexCmd = LATEX_CMD_HINT_RE.test(s);
+  if (!hasUnicodeMath && !hasLatexCmd) {
+    return s;
+  }
+
+  // 2) 구분자 없는 LaTeX 패턴 구간을 자동 탐지해 inline/block 구분자로 감싸기
   return autoWrapMathSpans(s);
+}
+
+/**
+ * 파싱된 세그먼트에서 복잡한 inline 수식을 block으로 업그레이드합니다.
+ * \sum, \int, \frac, \langle, \rangle, |k\rangle 등 복잡한 연산자가 포함된
+ * $...$ inline 수식은 $$...$$ block으로 변환해 렌더링 안정성을 높입니다.
+ */
+function upgradeComplexInlineMath(segments: MathSegment[]): MathSegment[] {
+  return segments.map((seg) => {
+    if (
+      seg.kind === "math" &&
+      !seg.displayMode &&
+      (COMPLEX_MATH_RE.test(seg.value) || seg.value.trim().length > 60)
+    ) {
+      return { ...seg, displayMode: true };
+    }
+    return seg;
+  });
 }
 
 function renderSearchHighlights(
@@ -211,9 +231,10 @@ function BlockMath({
   }, [latex]);
 
   // <p> 내부에서도 깨지지 않도록 span(block display)로 렌더링
+  // my-3: 앞뒤 텍스트와 자연스러운 여백, py-1: 수식 자체 패딩
   return (
     <span
-      className="block w-full my-2 overflow-x-auto text-center"
+      className="block w-full my-3 py-1 overflow-x-auto text-center"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
@@ -270,7 +291,8 @@ export default function MixedTextWithMath({
   markActiveClassName,
 }: MixedTextWithMathProps) {
   const normalized = useMemo(() => normalizeUnicodeMathToLatex(text), [text]);
-  const segments = useMemo(() => splitMathSegments(normalized), [normalized]);
+  const rawSegments = useMemo(() => splitMathSegments(normalized), [normalized]);
+  const segments = useMemo(() => upgradeComplexInlineMath(rawSegments), [rawSegments]);
   return (
     <>
       {renderSegments(
