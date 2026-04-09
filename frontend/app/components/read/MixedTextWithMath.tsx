@@ -140,6 +140,12 @@ function normalizeUnicodeMathToLatex(input: string): string {
     // PDF 추출에서 자주 섞이는 minus 기호 정규화
     .replaceAll("−", "-");
 
+  // 한글/CJK 문장은 자동 수식 래핑을 하지 않음.
+  // 번역문 가시성을 최우선으로 보장하고, 명시적 구분자($...$, $$...$$, \(...\), \[...\])만 렌더링.
+  if (/[\uAC00-\uD7A3\u4E00-\u9FFF\u3040-\u30FF]/.test(s)) {
+    return s;
+  }
+
   // 이미 LaTeX 구분자가 있으면 auto-wrap 건너뜀
   // (복잡한 inline → block 업그레이드는 upgradeComplexInlineMath에서 처리)
   if (s.includes("$") || s.includes("\\(") || s.includes("\\[")) {
@@ -274,6 +280,7 @@ function upgradeComplexInlineMath(segments: MathSegment[]): MathSegment[] {
     if (
       seg.kind === "math" &&
       !seg.displayMode &&
+      !/[\uAC00-\uD7A3\u4E00-\u9FFF\u3040-\u30FF]/.test(seg.value) &&
       (COMPLEX_MATH_RE.test(seg.value) || seg.value.trim().length > 60)
     ) {
       return { ...seg, displayMode: true };
