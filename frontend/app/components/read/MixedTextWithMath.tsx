@@ -18,6 +18,10 @@ const MATH_TOKEN_RE =
 const COMPLEX_MATH_RE =
   /(\\sum|\\int|\\frac|\\langle|\\rangle|\\lim|\\sqrt|\|[A-Za-z][^|]{0,40}\\rangle|\\left|\\right)/;
 
+type RenderToken =
+  | { kind: "text"; value: string }
+  | { kind: "math"; value: string };
+
 type Span = { start: number; end: number };
 
 function mergeNearbySpans(spans: Span[], maxGap = 2): Span[] {
@@ -429,35 +433,25 @@ function renderSearchHighlights(
   );
 }
 
-function InlineMath({
-  latex,
-}: {
-  latex: string;
-}) {
-  const html = useMemo(() => {
-    try {
-      return katex.renderToString(latex.trim(), {
-        displayMode: false,
-        throwOnError: false,
-        strict: (code) =>
-          code === "unicodeTextInMathMode" || code === "mathVsTextUnits"
-            ? "ignore"
-            : "warn",
-      });
-    } catch {
-      return katex.renderToString(latex, {
-        displayMode: false,
-        throwOnError: false,
-      });
+function toRenderTokens(segments: MathSegment[]): RenderToken[] {
+  const tokens: RenderToken[] = [];
+  for (const seg of segments) {
+    if (seg.kind === "math") {
+      const value = seg.value.trim();
+      if (!value) continue;
+      tokens.push({ kind: "math", value });
+      continue;
     }
-  }, [latex]);
-
-  return (
-    <span
-      className="inline-block align-baseline mx-0.5 max-w-none"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
+    const text = restoreWordSpacing(seg.value);
+    if (!text) continue;
+    const prev = tokens[tokens.length - 1];
+    if (prev?.kind === "text") {
+      prev.value += text;
+    } else {
+      tokens.push({ kind: "text", value: text });
+    }
+  }
+  return tokens;
 }
 
 function BlockMath({
@@ -484,41 +478,44 @@ function BlockMath({
   }, [latex]);
 
   // <p> 내부에서도 깨지지 않도록 span(block display)로 렌더링
-  // my-3: 앞뒤 텍스트와 자연스러운 여백, py-1: 수식 자체 패딩
+  // my-2: 문단 흐름을 유지하면서 수식 분리 가독성 확보
   return (
     <span
-      className="block w-full my-3 py-1 overflow-x-auto text-center"
+      className="block w-full my-2 py-1 overflow-x-auto text-center"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
 }
 
-function renderSegments(
-  segments: MathSegment[],
+function renderTokens(
+  tokens: RenderToken[],
   searchQuery: string | undefined,
   markClass: string,
   markActiveClass: string,
   isSearchActive: boolean
 ): ReactNode {
-  return segments.map((seg, idx) => {
-    if (seg.kind === "math") {
-      // 읽기 가독성을 위해 inline/display 구분자와 관계없이 수식은 별도 행(block)으로 렌더링
-      // 결과: "텍스트 + 수식 + 텍스트"가 시각적으로 명확하게 분리됨
-      return <BlockMath key={`m-${idx}`} latex={seg.value} />;
+  return tokens.map((token, idx) => {
+    if (token.kind === "math") {
+      // 수식은 항상 별도 행으로 분리해서 렌더링
+      return <BlockMath key={`m-${idx}`} latex={token.value} />;
     }
-    // 수식이 아닌 텍스트에만 공백 복원 적용
-    const displayText = restoreWordSpacing(seg.value);
+
+    const textLines = token.value.split("\n");
     return (
-      <span key={`t-${idx}`}>
-        {searchQuery?.trim()
-          ? renderSearchHighlights(
-              displayText,
-              searchQuery,
-              markClass,
-              markActiveClass,
-              isSearchActive
-            )
-          : displayText}
+      <span key={`t-${idx}`} className="block whitespace-pre-wrap">
+        {textLines.map((line, lineIdx) => (
+          <span key={`t-${idx}-${lineIdx}`} className="block">
+            {searchQuery?.trim()
+              ? renderSearchHighlights(
+                  line,
+                  searchQuery,
+                  markClass,
+                  markActiveClass,
+                  isSearchActive
+                )
+              : line}
+          </span>
+        ))}
       </span>
     );
   });
@@ -551,10 +548,11 @@ export default function MixedTextWithMath({
     [normalized]
   );
   const segments = useMemo(() => upgradeComplexInlineMath(rawSegments), [rawSegments]);
+  const tokens = useMemo(() => toRenderTokens(segments), [segments]);
   return (
     <>
-      {renderSegments(
-        segments,
+      {renderTokens(
+        tokens,
         searchQuery,
         markClassName,
         markActiveClassName,
