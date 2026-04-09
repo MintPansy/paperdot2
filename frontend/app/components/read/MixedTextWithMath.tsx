@@ -9,6 +9,10 @@ import { splitMathSegments, type MathSegment } from "./mathSegments";
 const UNICODE_MATH_HINT_RE =
   /[∑∫√∞≤≥≈≠→←↔αβγδθλμνπρσφωℏ⟨⟩]/;
 
+// LaTeX 커맨드가 있는데 $...$ 같은 구분자가 없는 경우를 보정하기 위한 힌트
+const LATEX_CMD_HINT_RE =
+  /\\[A-Za-z]+|\\\||\^\{[^}]*\}|_\{[^}]*\}/;
+
 function normalizeUnicodeMathToLatex(input: string): string {
   if (!input) return input;
 
@@ -16,7 +20,9 @@ function normalizeUnicodeMathToLatex(input: string): string {
   if (input.includes("$") || input.includes("\\(") || input.includes("\\[")) {
     return input;
   }
-  if (!UNICODE_MATH_HINT_RE.test(input)) {
+  const hasUnicodeMath = UNICODE_MATH_HINT_RE.test(input);
+  const hasLatexCmd = LATEX_CMD_HINT_RE.test(input);
+  if (!hasUnicodeMath && !hasLatexCmd) {
     return input;
   }
 
@@ -43,7 +49,8 @@ function normalizeUnicodeMathToLatex(input: string): string {
   //    - 끝: 수학 힌트/기호가 끝나는 지점(우측으로 괄호/파이프/지수 등 포함)
   const startAnchor = Math.max(
     s.indexOf("="),
-    s.search(UNICODE_MATH_HINT_RE)
+    s.search(UNICODE_MATH_HINT_RE),
+    s.search(LATEX_CMD_HINT_RE)
   );
   if (startAnchor < 0) return s;
 
@@ -51,6 +58,7 @@ function normalizeUnicodeMathToLatex(input: string): string {
   let start = startAnchor;
   while (start > 0 && allowedLeft.test(s[start - 1] ?? "")) start--;
 
+  // 오른쪽은 공백을 포함하되, 너무 멀리(다음 문장)까지 먹지 않도록 휴리스틱으로 제한
   const allowedRight = /[A-Za-z0-9_|\\^{}()[\]\-+*/.,\s]/;
   let end = startAnchor;
   while (end < s.length && allowedRight.test(s[end] ?? "")) end++;
