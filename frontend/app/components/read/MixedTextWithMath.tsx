@@ -119,6 +119,75 @@ function autoWrapMathSpans(input: string): string {
   return out;
 }
 
+function isEquationLikeLine(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  // 이미 명시적 구분자가 있으면 그대로 둠
+  if (t.includes("$$") || t.includes("$") || t.includes("\\(") || t.includes("\\[")) {
+    return false;
+  }
+  // CJK 문장은 오탐 방지를 위해 제외
+  if (/[\uAC00-\uD7A3\u4E00-\u9FFF\u3040-\u30FF]/.test(t)) return false;
+
+  const hasLatexCmd = /\\[A-Za-z]+/.test(t);
+  const hasMathOps = /[=+\-*/^_{}|<>]/.test(t);
+  const hasMathGlyph = /[∑∫√∞≤≥≈≠→←↔⟨⟩]/.test(t);
+  const tokenDense =
+    ((t.match(/[=+\-*/^_{}|<>()[\]\\]/g) ?? []).length / Math.max(1, t.length)) >
+    0.12;
+  const likelyEquationNumber = /\(\d+\)\s*$/.test(t);
+
+  // 논문 PDF 추출식에서 자주 보이는 합표기 깨짐(X, n=0 등) 보정
+  const sumLike = /(?:^|\s)X(?:\s|$)|[a-zA-Z]\s*=\s*\d+/.test(t);
+
+  return (
+    hasLatexCmd ||
+    hasMathGlyph ||
+    likelyEquationNumber ||
+    (hasMathOps && (tokenDense || sumLike))
+  );
+}
+
+function wrapEquationLikeLines(input: string): string {
+  return input
+    .split("\n")
+    .map((line) => {
+      if (!isEquationLikeLine(line)) return line;
+      const trimmed = line.trim();
+      return `$$${trimmed}$$`;
+    })
+    .join("\n");
+}
+
+function normalizePdfEquationArtifacts(input: string): string {
+  let s = input;
+
+  // 03page.pdf 계열에서 자주 보이는 합 기호 깨짐: "NH-1 X n=0" / "NH-1 X n=1"
+  s = s
+    .replace(
+      /\bN\s*H\s*-\s*1\s*X\s*n\s*=\s*0\b/g,
+      "\\sum_{n=0}^{N_H-1}"
+    )
+    .replace(
+      /\bN\s*H\s*-\s*1\s*X\s*n\s*=\s*1\b/g,
+      "\\sum_{n=1}^{N_H-1}"
+    );
+
+  // 간단한 합 표기 보정: "X E" -> "\sum_E", "X n" -> "\sum_n"
+  s = s
+    .replace(/(?:^|\s)X\s*E(?:\s|$)/g, " \\sum_E ")
+    .replace(/(?:^|\s)X\s*n(?:\s|$)/g, " \\sum_n ");
+
+  // 인덱스/특수문자 기반 표기 보정
+  s = s
+    .replace(/S\s*K\s*,\s*\\infty/g, "S_{K,\\infty}")
+    .replace(/S\s*K\s*,\s*∞/g, "S_{K,\\infty}")
+    .replace(/Λ\s*n/g, "\\Lambda_n")
+    .replace(/Λn/g, "\\Lambda_n");
+
+  return s;
+}
+
 function normalizeUnicodeMathToLatex(input: string): string {
   if (!input) return input;
 
@@ -139,6 +208,11 @@ function normalizeUnicodeMathToLatex(input: string): string {
     .replaceAll("↔", "\\leftrightarrow")
     // PDF 추출에서 자주 섞이는 minus 기호 정규화
     .replaceAll("−", "-");
+
+  s = normalizePdfEquationArtifacts(s);
+
+  // 03page.pdf 계열처럼 수식이 줄 단위로 분리된 텍스트를 우선 block 수식으로 감쌈
+  s = wrapEquationLikeLines(s);
 
   // 한글/CJK 문장은 자동 수식 래핑을 하지 않음.
   // 번역문 가시성을 최우선으로 보장하고, 명시적 구분자($...$, $$...$$, \(...\), \[...\])만 렌더링.

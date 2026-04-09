@@ -263,4 +263,25 @@ export const MOCK_TRANSLATION_PAIRS: MockTranslationPair[] = withMockSourcePages
     translatedText:
       "[수식 샘플] 이차방정식 근의 공식은 $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$이고, 정규화된 상태에 대해 $\\langle \\psi | \\psi \\rangle = 1$입니다.",
   },
+  {
+    docUnitId: 34,
+    sourceText:
+      "[03page regression] NH-1 X n=0 an |kn> <kn| + NH-1 X n=1 [bn |kn-1> <kn| + h.c.]",
+    translatedText:
+      "[03page 회귀] NH-1 X n=0 an |kn> <kn| + NH-1 X n=1 [bn |kn-1> <kn| + h.c.] 형태의 합 표기를 포함합니다.",
+  },
+  {
+    docUnitId: 35,
+    sourceText:
+      "[03page regression] SK,∞ = lim t->∞ 1/t ∫_0^t dt' SK(t') and Λn = X E Λn,|E|.",
+    translatedText:
+      "[03page 회귀] SK,∞ = lim t->∞ 1/t ∫_0^t dt' SK(t') 와 Λn = X E Λn,|E| 같은 표기가 PDF 추출에서 자주 깨집니다.",
+  },
+  {
+    docUnitId: 36,
+    sourceText:
+      "[03page regression] The overlap is cn(t) = <kn|ψt> = X E e^{-iEt} <kn|E><E|k0>.",
+    translatedText:
+      "[03page 회귀] 중첩은 cn(t) = <kn|ψt> = X E e^{-iEt} <kn|E><E|k0> 형태로 나타나며 수식 줄로 분리되어야 합니다.",
+  },
 ]);
