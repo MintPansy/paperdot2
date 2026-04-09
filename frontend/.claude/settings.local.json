@@ -8,7 +8,8 @@
       "Bash(npm run build:*)",
       "Bash(xargs grep:*)",
       "Bash(grep -A 5 -B 2 \"\\\\$\\\\$\\\\|\\\\\\\\\\\\\\\\\\\\[\\\\|\\\\\\\\\\\\\\\\\\\\\\(\" /c/paperdot2/frontend/app/components/read/MixedTextWithMath.tsx)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(echo \"exit:$?\")"
     ]
   }
 }

@@ -137,6 +137,71 @@ function normalizeUnicodeMathToLatex(input: string): string {
 }
 
 /**
+ * PDF 추출 텍스트에서 유실된 공백을 휴리스틱으로 복원합니다.
+ * 수식 세그먼트에는 적용하지 않고 일반 텍스트에만 사용합니다.
+ *
+ * 적용 규칙:
+ *  1. 소문자 → 대문자 경계  "initialState" → "initial State"
+ *  2. 연속 대문자 뒤 새 단어  "ABCDef" → "ABC Def"
+ *  3. 2글자 이상 영문 ↔ 숫자  "chain1section" → "chain 1 section"
+ *     (단독 변수명 k0, H0 등은 건드리지 않음)
+ *  4. 수식 기호 주변 공백  "|I>=|k0>" → "| I >= | k0 >"
+ *  5. 중복 공백 제거
+ *
+ * 한국어/CJK 텍스트는 skip합니다.
+ */
+function restoreWordSpacing(text: string): string {
+  if (!text || text.length < 2) return text;
+
+  // 한국어/CJK 포함 시 skip
+  if (/[\uAC00-\uD7A3\u4E00-\u9FFF\u3040-\u30FF]/.test(text)) return text;
+
+  // 라틴 문자 비율 25% 미만이면 skip (숫자·기호 위주 텍스트 보호)
+  const latinCount = (text.match(/[a-zA-Z]/g) ?? []).length;
+  if (latinCount < 3 || latinCount / text.length < 0.25) return text;
+
+  let s = text;
+
+  // 1. 소문자 → 대문자 경계 (camelCase 분리)
+  s = s.replace(/([a-z])([A-Z])/g, "$1 $2");
+
+  // 2. 연속 대문자 → 새 단어 시작 (약어 뒤 단어)
+  //    "ABCDef" → "ABC Def"
+  s = s.replace(/([A-Z]{2,})([A-Z][a-z])/g, "$1 $2");
+
+  // 3. 2글자 이상 영문 ↔ 숫자 경계 (단독 k0, H0 는 유지)
+  s = s.replace(/([a-zA-Z]{2,})(\d+)/g, "$1 $2");
+  s = s.replace(/(\d+)([a-zA-Z]{2,})/g, "$1 $2");
+
+  // 4. 수식 기호 주변 공백 (text 세그먼트 내 ket/bra 표기 등)
+  //    | 기호
+  s = s.replace(/([a-zA-Z\d])\|/g, "$1 |");
+  s = s.replace(/\|([a-zA-Z\d])/g, "| $1");
+  //    >= <= 복합 연산자: 단위로 유지하면서 앞뒤 공백
+  //    "coefficient>=threshold" → "coefficient >= threshold"
+  s = s.replace(/([a-zA-Z\d])>=/g, "$1 >=");
+  s = s.replace(/>=([a-zA-Z\d])/g, ">= $1");
+  s = s.replace(/([a-zA-Z\d])<=/g, "$1 <=");
+  s = s.replace(/<=([a-zA-Z\d])/g, "<= $1");
+  //    = 다음 | 기호 분리: ket 표기 "|I>=|k0>" → "| I > = | k0 >"
+  s = s.replace(/=\|/g, "= |");
+  //    단독 > (>= 은 위에서 처리, >> 유지)
+  s = s.replace(/([a-zA-Z\d])>(?![=>])/g, "$1 >");
+  s = s.replace(/(?<![=>])>([a-zA-Z])/g, "> $1");
+  //    단독 < (<= 은 위에서 처리, << 유지)
+  s = s.replace(/([a-zA-Z\d])<(?![=<])/g, "$1 <");
+  s = s.replace(/(?<![=<])<([a-zA-Z\d])/g, "< $1");
+  //    단독 = (>=, <=, =>, == 제외)
+  s = s.replace(/([a-zA-Z\d])=(?![=><])/g, "$1 =");
+  s = s.replace(/(?<![<>!=])=([a-zA-Z\d])/g, "= $1");
+
+  // 5. 중복 공백 제거
+  s = s.replace(/[ \t]{2,}/g, " ").trim();
+
+  return s;
+}
+
+/**
  * 파싱된 세그먼트에서 복잡한 inline 수식을 block으로 업그레이드합니다.
  * \sum, \int, \frac, \langle, \rangle, |k\rangle 등 복잡한 연산자가 포함된
  * $...$ inline 수식은 $$...$$ block으로 변환해 렌더링 안정성을 높입니다.
@@ -255,17 +320,19 @@ function renderSegments(
         <InlineMath key={`m-${idx}`} latex={seg.value} />
       );
     }
+    // 수식이 아닌 텍스트에만 공백 복원 적용
+    const displayText = restoreWordSpacing(seg.value);
     return (
       <span key={`t-${idx}`}>
         {searchQuery?.trim()
           ? renderSearchHighlights(
-              seg.value,
+              displayText,
               searchQuery,
               markClass,
               markActiveClass,
               isSearchActive
             )
-          : seg.value}
+          : displayText}
       </span>
     );
   });
