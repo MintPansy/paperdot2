@@ -13,6 +13,90 @@ const UNICODE_MATH_HINT_RE =
 const LATEX_CMD_HINT_RE =
   /\\[A-Za-z]+|\\\||\^\{[^}]*\}|_\{[^}]*\}/;
 
+const MATH_TOKEN_RE =
+  /(\\sum|\\int|\\frac|\\langle|\\rangle|\\sqrt|\\lim|\\to|\\infty|\\left|\\right|\\[A-Za-z]+|\|[A-Za-z][^|]{0,40}\\rangle|\^[A-Za-z0-9({\\]|_[A-Za-z0-9({\\])/g;
+
+type Span = { start: number; end: number };
+
+function mergeNearbySpans(spans: Span[], maxGap = 8): Span[] {
+  if (spans.length === 0) return spans;
+  spans.sort((a, b) => a.start - b.start);
+  const merged: Span[] = [spans[0]];
+  for (let i = 1; i < spans.length; i++) {
+    const prev = merged[merged.length - 1];
+    const cur = spans[i];
+    if (cur.start <= prev.end + maxGap) {
+      prev.end = Math.max(prev.end, cur.end);
+    } else {
+      merged.push({ ...cur });
+    }
+  }
+  return merged;
+}
+
+function expandSpan(s: string, span: Span): Span {
+  const allowed = /[A-Za-z0-9_|\\^{}()[\]\-+*/=.,:;'<>\s]/;
+  let start = span.start;
+  let end = span.end;
+
+  while (start > 0 && allowed.test(s[start - 1] ?? "")) {
+    // 문장 시작/강한 구분자에서 멈춰 과도한 확장을 방지
+    const ch = s[start - 1];
+    if (ch === "\n") break;
+    start--;
+  }
+
+  while (end < s.length && allowed.test(s[end] ?? "")) {
+    const ch = s[end];
+    // 다음 문장으로 번지는 것 방지
+    if (ch === "\n") break;
+    end++;
+  }
+
+  // 양 끝 공백/구두점 정리
+  while (start < end && /\s/.test(s[start] ?? "")) start++;
+  while (end > start && /\s/.test(s[end - 1] ?? "")) end--;
+  while (end > start && /[.,;:!?]/.test(s[end - 1] ?? "")) end--;
+
+  return { start, end };
+}
+
+function autoWrapMathSpans(input: string): string {
+  const spans: Span[] = [];
+  const normalized = input;
+  for (const m of normalized.matchAll(MATH_TOKEN_RE)) {
+    if (m.index == null) continue;
+    spans.push({ start: m.index, end: m.index + m[0].length });
+  }
+  if (spans.length === 0) return input;
+
+  const merged = mergeNearbySpans(spans).map((sp) => expandSpan(normalized, sp));
+  const filtered = merged.filter((sp) => sp.end - sp.start >= 3);
+  if (filtered.length === 0) return input;
+
+  let out = "";
+  let pos = 0;
+  for (const sp of filtered) {
+    if (sp.start < pos) continue;
+    out += normalized.slice(pos, sp.start);
+    const body = normalized.slice(sp.start, sp.end).trim();
+    if (!body) {
+      out += normalized.slice(sp.start, sp.end);
+      pos = sp.end;
+      continue;
+    }
+    // 길거나 합/적분 중심 표현은 block, 나머지는 inline
+    const blockLike =
+      body.length > 90 ||
+      /\\sum|\\int|\\lim|\\frac/.test(body) ||
+      body.includes("\n");
+    out += blockLike ? `$$${body}$$` : `$${body}$`;
+    pos = sp.end;
+  }
+  out += normalized.slice(pos);
+  return out;
+}
+
 function normalizeUnicodeMathToLatex(input: string): string {
   if (!input) return input;
 
@@ -44,34 +128,8 @@ function normalizeUnicodeMathToLatex(input: string): string {
     // PDF 추출에서 자주 섞이는 minus 기호 정규화
     .replaceAll("−", "-");
 
-  // 2) 문장 전체가 아니라 "식으로 보이는 구간"만 $...$로 감쌈 (휴리스틱)
-  //    - 시작: '=' 또는 첫 수학 힌트 문자 근처(좌측으로 변수명/기호 포함)
-  //    - 끝: 수학 힌트/기호가 끝나는 지점(우측으로 괄호/파이프/지수 등 포함)
-  const startAnchor = Math.max(
-    s.indexOf("="),
-    s.search(UNICODE_MATH_HINT_RE),
-    s.search(LATEX_CMD_HINT_RE)
-  );
-  if (startAnchor < 0) return s;
-
-  const allowedLeft = /[A-Za-z0-9_|\\^{}()[\]\-+*/.,\s]/;
-  let start = startAnchor;
-  while (start > 0 && allowedLeft.test(s[start - 1] ?? "")) start--;
-
-  // 오른쪽은 공백을 포함하되, 너무 멀리(다음 문장)까지 먹지 않도록 휴리스틱으로 제한
-  const allowedRight = /[A-Za-z0-9_|\\^{}()[\]\-+*/.,\s]/;
-  let end = startAnchor;
-  while (end < s.length && allowedRight.test(s[end] ?? "")) end++;
-
-  // 너무 짧으면 감싸지 않음
-  if (end - start < 3) return s;
-
-  // 문장 끝의 마침표/쉼표는 수식 밖으로 빼는 편이 안정적
-  const tail = s.slice(end);
-  const body = s.slice(start, end).trim();
-  if (!body) return s;
-
-  return `${s.slice(0, start)}$${body}$${tail}`;
+  // 2) 문장 내 LaTeX 패턴 구간을 자동 탐지해 inline/block 구분자로 감싸기
+  return autoWrapMathSpans(s);
 }
 
 function renderSearchHighlights(
