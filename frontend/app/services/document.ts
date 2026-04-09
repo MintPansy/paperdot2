@@ -251,6 +251,53 @@ export const getTranslation = async (
   return getTranslatedDocument(documentId, accessToken);
 };
 
+/** 백엔드 파이프라인 진행률(상태 카운트). 부분 완료·실패 감지에 사용 */
+export interface TranslationProgressPayload {
+  total: number;
+  translated: number;
+  translating: number;
+  created: number;
+  failed: number;
+}
+
+export const getTranslationProgress = async (
+  documentId: string | number,
+  accessToken?: string
+): Promise<TranslationProgressPayload | null> => {
+  const apiUrl = getApiUrl();
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(
+    `${apiUrl}/api/v1/documents/${documentId}/translation-progress`,
+    { method: "GET", headers, credentials: "include" }
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("text/html")) {
+    throw new Error("인증이 필요합니다. 로그인해주세요.");
+  }
+
+  if (!response.ok) {
+    throw new Error("번역 진행 상태를 가져오지 못했습니다.");
+  }
+
+  const data = await response.json();
+  return {
+    total: Number(data.total) || 0,
+    translated: Number(data.translated) || 0,
+    translating: Number(data.translating) || 0,
+    created: Number(data.created) || 0,
+    failed: Number(data.failed) || 0,
+  };
+};
+
 // 문서 상세 정보 가져오기
 export interface DocumentDetail {
   documentId: number;

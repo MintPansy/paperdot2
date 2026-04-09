@@ -34,8 +34,16 @@ public class DocumentPipelineService {
     private static final String DEFAULT_SOURCE_LANG = "en";
     private static final String DEFAULT_TARGET_LANG = "ko";
 
-    @Value("${translation.batch-size:30}")
+    @Value("${translation.batch-size:15}")
     private int batchSize;
+
+    /** 첫 API 호출만 작게 잡아 초기 번역 결과를 빨리 DB에 반영 (프론트 폴링·부분 표시와 맞물림). */
+    @Value("${translation.first-batch-size:8}")
+    private int firstBatchSize;
+
+    /** 배치당 대략 최대 문자 수(너무 긴 문장 누적 시 토큰 한도·지연 방지). */
+    @Value("${translation.max-chars-per-batch:8000}")
+    private int maxCharsPerBatch;
 
     public void processDocument(Long documentId, boolean overwrite) {
         log.info("===== Document Pipeline START for documentId: {} (Overwrite: {}) =====", documentId, overwrite);
@@ -217,12 +225,13 @@ public class DocumentPipelineService {
         docUnitsRepository.saveAll(newDocUnits);
         log.info("documentId {} - saved {} doc_units", documentId, newDocUnits.size());
 
-        // Translate in batches and save immediately
+        // Translate in batches and save immediately (첫 배치는 작게 → 부분 완료가 빨리 노출)
         int total = newDocUnits.size();
         int start = 0;
         int batchIndex = 0;
         while (start < total) {
-            int end = Math.min(start + batchSize, total);
+            int sentenceLimit = (batchIndex == 0) ? firstBatchSize : batchSize;
+            int end = computeBatchEnd(start, sentences, total, sentenceLimit, maxCharsPerBatch);
             List<docUnitsEntity> batchUnits = newDocUnits.subList(start, end);
             List<String> batchSentences = batchUnits.stream()
                     .map(docUnitsEntity::getSourceText)
@@ -261,6 +270,33 @@ public class DocumentPipelineService {
             start = end;
             batchIndex++;
         }
+    }
+
+    /**
+     * 문장 인덱스 {@code start}부터 최대 {@code maxSentences}개, 누적 문자 {@code maxChars} 이하로 배치 끝 인덱스(배타적)를 계산.
+     */
+    private static int computeBatchEnd(
+            int start,
+            List<String> sentences,
+            int totalUnits,
+            int maxSentences,
+            int maxChars
+    ) {
+        int end = start;
+        int chars = 0;
+        while (end < totalUnits && (end - start) < maxSentences) {
+            String s = sentences.get(end);
+            int len = s != null ? s.length() : 0;
+            if (chars + len > maxChars && end > start) {
+                break;
+            }
+            chars += len;
+            end++;
+        }
+        if (end == start) {
+            return Math.min(start + 1, totalUnits);
+        }
+        return end;
     }
 
     @org.springframework.scheduling.annotation.Async("documentPipelineExecutor")

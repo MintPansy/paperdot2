@@ -12,14 +12,18 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import swyp.paperdot.translator.cache.TranslationCacheKeys;
+import swyp.paperdot.translator.cache.TranslationCachePort;
 import swyp.paperdot.translator.dto.OpenAiTranslationDto;
 import swyp.paperdot.translator.dto.OpenAiTranslationDto.AcademicTranslationItem;
 import swyp.paperdot.translator.dto.OpenAiTranslationDto.TranslationPair;
 import swyp.paperdot.translator.exception.TranslationException;
 import swyp.paperdot.translator.exception.TranslationSizeMismatchException;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -27,23 +31,34 @@ public class OpenAiTranslator implements TranslatorPort {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final TranslationCachePort translationCache;
 
     private static final int ACADEMIC_MAX_ATTEMPTS = 3;
+
+    /**
+     * {@link #createTranslationOnlyPrompt(String)} 변경 시 올려서 캐시 무효화에 대응.
+     */
+    private static final String TRANSLATION_ONLY_PROMPT_VERSION = "1";
 
     private final String apiKey;
     private final String model;
     private final String apiUrl = "https://api.openai.com/v1/chat/completions";
+    private final boolean translationCacheEnabled;
 
     public OpenAiTranslator(
             RestTemplate restTemplate,
             ObjectMapper objectMapper,
+            TranslationCachePort translationCache,
             @Value("${openai.api.key}") String apiKey,
-            @Value("${openai.api.model}") String model
+            @Value("${openai.api.model}") String model,
+            @Value("${translation.cache.enabled:true}") boolean translationCacheEnabled
     ) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.translationCache = translationCache;
         this.apiKey = apiKey;
         this.model = model;
+        this.translationCacheEnabled = translationCacheEnabled;
     }
 
     public List<TranslationPair> extractAndTranslate(String rawText, String targetLang) {
@@ -97,6 +112,69 @@ public class OpenAiTranslator implements TranslatorPort {
             return Collections.emptyList();
         }
 
+        if (!translationCacheEnabled) {
+            return fetchSentenceTranslationsFromApi(sentences, targetLang);
+        }
+
+        List<String> out = new ArrayList<>(Collections.nCopies(sentences.size(), ""));
+        List<Integer> missIndices = new ArrayList<>();
+        List<String> missSentences = new ArrayList<>();
+        int hits = 0;
+
+        for (int i = 0; i < sentences.size(); i++) {
+            String src = sentences.get(i);
+            String key = TranslationCacheKeys.sentenceTranslationKey(
+                    TranslationCacheKeys.TASK_TRANSLATE_SENTENCES,
+                    TRANSLATION_ONLY_PROMPT_VERSION,
+                    model,
+                    targetLang,
+                    src
+            );
+            Optional<String> cached = translationCache.get(key);
+            if (cached.isPresent()) {
+                out.set(i, cached.get());
+                hits++;
+                log.info("translation cache HIT keyPrefix={} index={}/{}", key.substring(0, Math.min(12, key.length())), i + 1, sentences.size());
+            } else {
+                missIndices.add(i);
+                missSentences.add(src);
+            }
+        }
+
+        if (missSentences.isEmpty()) {
+            log.info("translation cache FULL_HIT sentences={} (no OpenAI call)", sentences.size());
+            return out;
+        }
+
+        log.info("translation cache MISS apiCalls=1 missSentences={} hits={} (of {})",
+                missSentences.size(), hits, sentences.size());
+
+        List<String> apiPart = fetchSentenceTranslationsFromApi(missSentences, targetLang);
+        if (apiPart.size() != missSentences.size()) {
+            throw new TranslationException(
+                    "translation size mismatch after API: expected=" + missSentences.size() + ", actual=" + apiPart.size(),
+                    null
+            );
+        }
+
+        for (int j = 0; j < missIndices.size(); j++) {
+            int idx = missIndices.get(j);
+            String translated = apiPart.get(j);
+            out.set(idx, translated);
+            String key = TranslationCacheKeys.sentenceTranslationKey(
+                    TranslationCacheKeys.TASK_TRANSLATE_SENTENCES,
+                    TRANSLATION_ONLY_PROMPT_VERSION,
+                    model,
+                    targetLang,
+                    sentences.get(idx)
+            );
+            translationCache.put(key, translated);
+        }
+
+        return out;
+    }
+
+    private List<String> fetchSentenceTranslationsFromApi(List<String> sentences, String targetLang) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 

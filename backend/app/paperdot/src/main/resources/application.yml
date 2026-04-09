@@ -76,7 +76,13 @@ ncp:
     bucket: ${NCP_BUCKET}
 
 translation:
-  batch-size: 30
+  # 배치당 문장 수(첫 배치는 first-batch-size). 작을수록 부분 완료·폴링 UI가 빨리 갱신됨.
+  batch-size: 15
+  first-batch-size: 8
+  max-chars-per-batch: 8000
+  cache:
+    enabled: true
+    max-entries: 100000
   executor:
     core-pool-size: 4
     max-pool-size: 8

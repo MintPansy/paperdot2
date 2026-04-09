@@ -6,6 +6,7 @@ import styles from "./NewDocument.module.css";
 import { formatFileSize } from "@/app/utils/useFormatFileSize";
 import {
   getTranslation,
+  getTranslationProgress,
   postDocuments,
   postTranslation,
 } from "@/app/services/document";
@@ -58,6 +59,7 @@ export default function NewDocumentPage() {
     null
   );
   const cancelledRef = useRef(false);
+  const lastPartialPersistRef = useRef(0);
 
   const userInfo = useLoginStore((state) => state.userInfo);
   const accessToken = useAccessTokenStore((state) => state.accessToken);
@@ -210,7 +212,10 @@ export default function NewDocumentPage() {
       return;
 
     cancelledRef.current = false;
-    const POLL_MS = 3000;
+    lastPartialPersistRef.current = 0;
+    const POLL_MS_QUICK = 900;
+    const POLL_MS_SLOW = 2800;
+    let switchSlowTimer: ReturnType<typeof setTimeout> | null = null;
 
     const applyResult = (list: TranslationPair[]) => {
       if (list.length === 0) return;
@@ -244,7 +249,10 @@ export default function NewDocumentPage() {
         const poll = async () => {
           if (cancelledRef.current) return;
           try {
-            const data = await getTranslation(document.documentId, accessToken);
+            const [data, progress] = await Promise.all([
+              getTranslation(document.documentId, accessToken),
+              getTranslationProgress(document.documentId, accessToken),
+            ]);
             if (!Array.isArray(data) || data.length === 0) return;
 
             const translatedCount = data.filter(
@@ -255,7 +263,29 @@ export default function NewDocumentPage() {
             const total = data.length;
             setTranslationProgress({ translated: translatedCount, total });
 
-            if (translatedCount === total) {
+            if (translatedCount > 0) {
+              setTranslatedText(data);
+              const now = Date.now();
+              if (now - lastPartialPersistRef.current > 2000) {
+                lastPartialPersistRef.current = now;
+                try {
+                  sessionStorage.setItem(
+                    "translationPairs",
+                    JSON.stringify(data)
+                  );
+                } catch {
+                  /* quota */
+                }
+              }
+            }
+
+            const settled =
+              progress != null &&
+              progress.total > 0 &&
+              progress.translating === 0 &&
+              progress.translated + progress.failed >= progress.total;
+
+            if (settled) {
               if (pollingIntervalRef.current) {
                 clearInterval(pollingIntervalRef.current);
                 pollingIntervalRef.current = null;
@@ -269,9 +299,24 @@ export default function NewDocumentPage() {
           }
         };
 
+        const schedulePoll = (ms: number) => {
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          pollingIntervalRef.current = setInterval(poll, ms);
+        };
+
         poll();
         if (cancelledRef.current) return;
-        pollingIntervalRef.current = setInterval(poll, POLL_MS);
+        schedulePoll(POLL_MS_QUICK);
+        switchSlowTimer = setTimeout(() => {
+          if (cancelledRef.current) return;
+          if (pollingIntervalRef.current) {
+            schedulePoll(POLL_MS_SLOW);
+          }
+        }, 45000);
+        // cleanup은 아래 effect return에서 switchSlowTimer까지 정리합니다.
       } catch (e) {
         if (!cancelledRef.current) {
           console.error("[번역 시작 실패]", e);
@@ -288,6 +333,7 @@ export default function NewDocumentPage() {
 
     return () => {
       cancelledRef.current = true;
+      if (switchSlowTimer) clearTimeout(switchSlowTimer);
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
