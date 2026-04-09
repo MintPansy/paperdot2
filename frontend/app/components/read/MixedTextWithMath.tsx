@@ -188,6 +188,21 @@ function normalizePdfEquationArtifacts(input: string): string {
   return s;
 }
 
+function isProseDominantDollarContent(content: string): boolean {
+  const t = content.trim();
+  if (!t) return false;
+  // CJK 문장이나 영문 단어가 많은 경우는 "문장 전체를 $...$로 감싼" 경우로 간주
+  const words = (t.match(/[A-Za-z]{2,}/g) ?? []).length;
+  const cjk = (t.match(/[\uAC00-\uD7A3\u4E00-\u9FFF\u3040-\u30FF]/g) ?? []).length;
+  const mathSignals = (t.match(/[\\^_{}]|\\[A-Za-z]+|[=+\-*/<>|]/g) ?? []).length;
+  const hasEquationNumber = /\(\d+\)\s*$/.test(t);
+
+  if (hasEquationNumber) return false;
+  if (cjk >= 6 && mathSignals < 8) return true;
+  if (words >= 8 && mathSignals < 10) return true;
+  return false;
+}
+
 function isolateMathAsBlocks(input: string): string {
   let s = input;
 
@@ -195,7 +210,13 @@ function isolateMathAsBlocks(input: string): string {
   s = s
     .replace(/\\\[((?:.|\n)*?)\\\]/g, "$$$$ $1 $$$$")
     .replace(/\\\(((?:.|\n)*?)\\\)/g, "$$$$ $1 $$$$")
-    .replace(/\$(?!\$)([^$\n]+?)\$/g, "$$$$ $1 $$$$");
+    .replace(/\$(?!\$)([^$\n]+?)\$/g, (_, body: string) => {
+      // 문장 전체를 감싼 $...$는 수식이 아니라 텍스트로 복원
+      if (isProseDominantDollarContent(body)) {
+        return body.trim();
+      }
+      return `$$ ${body} $$`;
+    });
 
   // 2) 이미 존재하는 $$...$$를 포함해 모든 블록 수식을 독립 행으로 분리
   s = s.replace(/\$\$((?:.|\n)*?)\$\$/g, (_, body: string) => {
