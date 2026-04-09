@@ -1,7 +1,7 @@
 /**
  * Read 화면용 mock 데이터.
  * sessionStorage에 번역 데이터가 없을 때(직접 /read 진입 등) 사용합니다.
- * 4페이지 분량 (8문장/페이지 × 4 = 32문장)
+ * 4페이지+α (8문장/페이지 기준, 마지막에 수식 테스트 문장 1개 추가)
  */
 
 export interface MockTranslationPair {
@@ -28,23 +28,23 @@ export const MOCK_TRANSLATION_PAIRS: MockTranslationPair[] = withMockSourcePages
   {
     docUnitId: 1,
     sourceText:
-      "Large language models (LLMs) have demonstrated remarkable capabilities across a wide range of natural language processing tasks.",
+      "An immediate consequence of this construction is that the many-body Hamiltonian in the Krylov basis takes the tridiagonal form $H = \\sum_{n=0}^{N_H-1} a_n |k_n\\rangle \\langle k_n| + \\sum_{n=1}^{N_H-1} \\left( b_n |k_{n-1}\\rangle \\langle k_n| + \\text{h.c.} \\right)$.",
     translatedText:
-      "대규모 언어 모델(LLM)은 자연어 처리의 광범위한 태스크에서 놀라운 성능을 보여주었습니다.",
+      "이 구성의 직접적인 결과로, Krylov 기에서 다체 Hamiltonian은 삼중대각 형태 $H = \\sum_{n=0}^{N_H-1} a_n |k_n\\rangle \\langle k_n| + \\sum_{n=1}^{N_H-1} \\left( b_n |k_{n-1}\\rangle \\langle k_n| + \\text{h.c.} \\right)$를 갖습니다.",
   },
   {
     docUnitId: 2,
     sourceText:
-      "Despite their impressive performance, these models often struggle with tasks requiring structured reasoning over long documents.",
+      "The overlap coefficients satisfy $c_n(t) = \\langle k_n | \\psi_t \\rangle = \\sum_E e^{-iEt} \\langle k_n | E \\rangle \\langle E | k_0 \\rangle$.",
     translatedText:
-      "인상적인 성능에도 불구하고, 이 모델들은 긴 문서에 대한 구조적 추론을 요구하는 태스크에서 어려움을 겪는 경우가 많습니다.",
+      "중첩 계수는 $c_n(t) = \\langle k_n | \\psi_t \\rangle = \\sum_E e^{-iEt} \\langle k_n | E \\rangle \\langle E | k_0 \\rangle$를 만족합니다.",
   },
   {
     docUnitId: 3,
     sourceText:
-      "In this work, we propose ScholarDot, a retrieval-augmented framework designed to enhance document comprehension for academic papers.",
+      "For the steady-state observable we use the long-time average $$S_{K,\\infty} = \\lim_{t \\to \\infty} \\frac{1}{t} \\int_0^t dt' \\, S_K(t').$$",
     translatedText:
-      "본 연구에서는 학술 논문의 문서 이해를 향상시키기 위해 설계된 검색 증강 프레임워크인 ScholarDot을 제안합니다.",
+      "정상 상태 관측량으로는 장시간 평균 $$S_{K,\\infty} = \\lim_{t \\to \\infty} \\frac{1}{t} \\int_0^t dt' \\, S_K(t')$$ 를 사용합니다.",
   },
   {
     docUnitId: 4,
@@ -254,5 +254,13 @@ export const MOCK_TRANSLATION_PAIRS: MockTranslationPair[] = withMockSourcePages
       "We believe this work opens a promising path toward AI systems that can read, reason, and synthesize knowledge from the scientific literature as effectively as human experts.",
     translatedText:
       "우리는 이 연구가 인간 전문가만큼 효과적으로 과학 문헌에서 지식을 읽고, 추론하고, 종합할 수 있는 AI 시스템을 향한 유망한 길을 열어준다고 믿습니다.",
+  },
+  // 로그인 전 /read mock·데모에서 KaTeX 렌더 확인용 (마지막 문장)
+  {
+    docUnitId: 33,
+    sourceText:
+      "[Sample math] The quadratic formula reads $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$; for a normalized state, $\\langle \\psi | \\psi \\rangle = 1$.",
+    translatedText:
+      "[수식 샘플] 이차방정식 근의 공식은 $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$이고, 정규화된 상태에 대해 $\\langle \\psi | \\psi \\rangle = 1$입니다.",
   },
 ]);

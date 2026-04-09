@@ -27,6 +27,7 @@ import {
   MOCK_FILE_NAME,
 } from "@/app/data/mockTranslationData";
 import PdfPageThumbnail from "@/app/components/read/pdf/PdfPageThumbnail";
+import MixedTextWithMath from "@/app/components/read/MixedTextWithMath";
 import { isDemoSessionClient } from "@/lib/authSession";
 
 type TranslationPair = {
@@ -918,27 +919,6 @@ export default function ReadList({
     [data, pageIndexFromDataIdx]
   );
 
-  /** 검색어가 포함된 텍스트를 하이라이트된 React 노드로 반환.
-   *  isActive=true 이면 현재 포커스 매치로 강조 색 적용. */
-  const highlightMatches = useCallback(
-    (text: string, query: string, isActive = false): React.ReactNode => {
-      if (!query.trim()) return text;
-      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const re = new RegExp(`(${escaped})`, "gi");
-      const parts = text.split(re);
-      return parts.map((part, i) =>
-        i % 2 === 1 ? (
-          <mark key={i} className={isActive ? styles.highlightActive : styles.highlight}>
-            {part}
-          </mark>
-        ) : (
-          part
-        )
-      );
-    },
-    []
-  );
-
   // ─── 렌더링 ───
   return (
     <main className={styles.container}>
@@ -1017,14 +997,22 @@ export default function ReadList({
                                     className={
                                       styles.pagePreviewTextSourceText
                                     }>
-                                    {x.sourceText || " "}
+                                    <MixedTextWithMath
+                                      text={x.sourceText || " "}
+                                      markClassName={styles.highlight}
+                                      markActiveClassName={styles.highlightActive}
+                                    />
                                   </p>
                                 </div>,
                                 <div
                                   key={`${x.docUnitId}-ko`}
                                   className={styles.pagePreviewRow}>
                                   <p className={styles.pagePreviewTextText}>
-                                    {x.translatedText || " "}
+                                    <MixedTextWithMath
+                                      text={x.translatedText || " "}
+                                      markClassName={styles.highlight}
+                                      markActiveClassName={styles.highlightActive}
+                                    />
                                   </p>
                                 </div>,
                               ])}
@@ -1224,9 +1212,15 @@ export default function ReadList({
                         : undefined
                     }
                   >
-                    {searchQuery.trim()
-                      ? highlightMatches(item.sourceText, searchQuery, isSearchActive)
-                      : item.sourceText}
+                    <MixedTextWithMath
+                      text={item.sourceText}
+                      searchQuery={
+                        searchQuery.trim() ? searchQuery : undefined
+                      }
+                      isSearchActive={isSearchActive}
+                      markClassName={styles.highlight}
+                      markActiveClassName={styles.highlightActive}
+                    />
                   </p>
                   <p
                     className={[
@@ -1257,9 +1251,15 @@ export default function ReadList({
                         : undefined
                     }
                   >
-                    {searchQuery.trim()
-                      ? highlightMatches(item.translatedText, searchQuery, isSearchActive)
-                      : item.translatedText}
+                    <MixedTextWithMath
+                      text={item.translatedText}
+                      searchQuery={
+                        searchQuery.trim() ? searchQuery : undefined
+                      }
+                      isSearchActive={isSearchActive}
+                      markClassName={styles.highlight}
+                      markActiveClassName={styles.highlightActive}
+                    />
                   </p>
                 </>
               )}
@@ -1288,9 +1288,15 @@ export default function ReadList({
                       : undefined
                   }
                 >
-                  {searchQuery.trim()
-                    ? highlightMatches(item.sourceText, searchQuery, isSearchActive)
-                    : item.sourceText}
+                  <MixedTextWithMath
+                    text={item.sourceText}
+                    searchQuery={
+                      searchQuery.trim() ? searchQuery : undefined
+                    }
+                    isSearchActive={isSearchActive}
+                    markClassName={styles.highlight}
+                    markActiveClassName={styles.highlightActive}
+                  />
                 </p>
               )}
               {filterMode === "korean" && (
@@ -1320,9 +1326,15 @@ export default function ReadList({
                       : undefined
                   }
                 >
-                  {searchQuery.trim()
-                    ? highlightMatches(item.translatedText, searchQuery, isSearchActive)
-                    : item.translatedText}
+                  <MixedTextWithMath
+                    text={item.translatedText}
+                    searchQuery={
+                      searchQuery.trim() ? searchQuery : undefined
+                    }
+                    isSearchActive={isSearchActive}
+                    markClassName={styles.highlight}
+                    markActiveClassName={styles.highlightActive}
+                  />
                 </p>
               )}
             </div>
