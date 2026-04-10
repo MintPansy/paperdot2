@@ -15,77 +15,76 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
-    private final UserService userService;
+  private final UserService userService;
 
-    @Override
-    public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-        OAuth2User oAuth2User = super.loadUser(userRequest);
+  @Override
+  public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
+    OAuth2User oAuth2User = super.loadUser(userRequest);
 
-        String registrationId = userRequest.getClientRegistration().getRegistrationId();
+    String registrationId = userRequest.getClientRegistration().getRegistrationId();
 
-        if ("kakao".equals(registrationId)) {
-            return handleKakao(oAuth2User);
-        }
-        if ("google".equals(registrationId)) {
-            return handleGoogle(oAuth2User);
-        }
-
-        return oAuth2User;
+    if ("kakao".equals(registrationId)) {
+      return handleKakao(oAuth2User);
+    }
+    if ("google".equals(registrationId)) {
+      return handleGoogle(oAuth2User);
     }
 
-    private OAuth2User handleKakao(OAuth2User oAuth2User) {
-        Map<String, Object> attributes = oAuth2User.getAttributes();
+    return oAuth2User;
+  }
 
-        String providerUserId = String.valueOf(attributes.get("id"));
+  private OAuth2User handleKakao(OAuth2User oAuth2User) {
+    Map<String, Object> attributes = oAuth2User.getAttributes();
 
-        Map<String, Object> account = (Map<String, Object>) attributes.get("kakao_account");
-        String email = null;
-        String nickname = null;
-        String profileImageUrl = null;
+    String providerUserId = String.valueOf(attributes.get("id"));
 
-        if (account != null) {
-            Object emailObj = account.get("email");
-            if (emailObj != null) email = String.valueOf(emailObj);
+    Map<String, Object> account = (Map<String, Object>) attributes.get("kakao_account");
+    String email = null;
+    String nickname = null;
+    String profileImageUrl = null;
 
-            Map<String, Object> profile = (Map<String, Object>) account.get("profile");
-            if (profile != null) {
-                Object nickObj = profile.get("nickname");
-                if (nickObj != null) nickname = String.valueOf(nickObj);
+    if (account != null) {
+      Object emailObj = account.get("email");
+      if (emailObj != null)
+        email = String.valueOf(emailObj);
 
-                Object imgObj = profile.get("profile_image_url");
-                if (imgObj != null) profileImageUrl = String.valueOf(imgObj);
-            }
-        }
+      Map<String, Object> profile = (Map<String, Object>) account.get("profile");
+      if (profile != null) {
+        Object nickObj = profile.get("nickname");
+        if (nickObj != null)
+          nickname = String.valueOf(nickObj);
 
-        UserEntity user = userService.upsertSocialUser(
-                SocialProvider.KAKAO, providerUserId, email, nickname, profileImageUrl
-        );
-
-        return new DefaultOAuth2User(
-                Set.of(() -> "ROLE_USER"),
-                Map.of("userId", user.getId(), "provider", "KAKAO"),
-                "userId"
-        );
+        Object imgObj = profile.get("profile_image_url");
+        if (imgObj != null)
+          profileImageUrl = String.valueOf(imgObj);
+      }
     }
 
-    private OAuth2User handleGoogle(OAuth2User oAuth2User) {
-        Map<String, Object> attributes = oAuth2User.getAttributes();
+    UserEntity user = userService.upsertSocialUser(
+        SocialProvider.KAKAO, providerUserId, email, nickname, profileImageUrl);
 
-        // Google OIDC: sub가 고유 식별자
-        String providerUserId = String.valueOf(attributes.get("sub"));
+    return new DefaultOAuth2User(
+        Set.of(() -> "ROLE_USER"),
+        Map.of("userId", user.getId(), "provider", "KAKAO"),
+        "userId");
+  }
 
-        String email = (String) attributes.get("email");     // 보통 제공됨
-        String nickname = (String) attributes.get("name");   // 표시 이름
-        String profileImageUrl = (String) attributes.get("picture");
+  private OAuth2User handleGoogle(OAuth2User oAuth2User) {
+    Map<String, Object> attributes = oAuth2User.getAttributes();
 
-        UserEntity user = userService.upsertSocialUser(
-                SocialProvider.GOOGLE, providerUserId, email, nickname, profileImageUrl
-        );
+    // Google OIDC: sub가 고유 식별자
+    String providerUserId = String.valueOf(attributes.get("sub"));
 
-        return new DefaultOAuth2User(
-                Set.of(() -> "ROLE_USER"),
-                Map.of("userId", user.getId(), "provider", "GOOGLE"),
-                "userId"
-        );
-    }
+    String email = (String) attributes.get("email"); // 보통 제공됨
+    String nickname = (String) attributes.get("name"); // 표시 이름
+    String profileImageUrl = (String) attributes.get("picture");
+
+    UserEntity user = userService.upsertSocialUser(
+        SocialProvider.GOOGLE, providerUserId, email, nickname, profileImageUrl);
+
+    return new DefaultOAuth2User(
+        Set.of(() -> "ROLE_USER"),
+        Map.of("userId", user.getId(), "provider", "GOOGLE"),
+        "userId");
+  }
 }
