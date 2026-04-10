@@ -1,12 +1,15 @@
 package swyp.paperdot.document.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swyp.paperdot.doc_units.docUnits.docUnitsEntity;
 import swyp.paperdot.doc_units.docUnits.docUnitsRepository;
+import swyp.paperdot.document.dto.DocumentComplexityScore;
 import swyp.paperdot.document.dto.DocumentStructureAnalysisResponse;
 import swyp.paperdot.document.dto.PageStructureStats;
+import swyp.paperdot.document.util.ComplexityScoreCalculator;
 import swyp.paperdot.document.util.MathExpressionCounter;
 
 import java.util.ArrayList;
@@ -21,6 +24,15 @@ public class DocumentStructureAnalysisService {
     private final docUnitsRepository docUnitsRepository;
     private final PdfTextExtractService pdfTextExtractService;
 
+    @Value("${paperdot.complexity.weight-math:4.0}")
+    private double complexityWeightMath;
+
+    @Value("${paperdot.complexity.weight-image:2.0}")
+    private double complexityWeightImage;
+
+    @Value("${paperdot.complexity.weight-length:0.015}")
+    private double complexityWeightLength;
+
     @Transactional(readOnly = true)
     public DocumentStructureAnalysisResponse analyze(Long documentId) {
         PdfTextExtractService.PdfPageLayout layout = pdfTextExtractService.extractPageLayout(documentId);
@@ -30,6 +42,7 @@ public class DocumentStructureAnalysisService {
         Map<Integer, Integer> sentencesByPage = new HashMap<>();
         Map<Integer, Integer> mathByPage = new HashMap<>();
         long mathTotal = 0L;
+        long totalSourceChars = 0L;
 
         for (docUnitsEntity u : units) {
             int p = u.getSourcePage() != null ? u.getSourcePage() : 1;
@@ -37,7 +50,11 @@ public class DocumentStructureAnalysisService {
                 p = Math.max(1, Math.min(p, pageCount));
             }
             sentencesByPage.merge(p, 1, Integer::sum);
-            int m = MathExpressionCounter.countMathSpans(u.getSourceText());
+            String src = u.getSourceText();
+            if (src != null) {
+                totalSourceChars += src.length();
+            }
+            int m = MathExpressionCounter.countMathSpans(src != null ? src : "");
             mathByPage.merge(p, m, Integer::sum);
             mathTotal += m;
         }
@@ -60,6 +77,17 @@ public class DocumentStructureAnalysisService {
                     .build());
         }
 
+        DocumentComplexityScore complexity = ComplexityScoreCalculator.compute(
+                mathTotal,
+                imageTotal,
+                paragraphTotal,
+                units.size(),
+                totalSourceChars,
+                complexityWeightMath,
+                complexityWeightImage,
+                complexityWeightLength
+        );
+
         return DocumentStructureAnalysisResponse.builder()
                 .pageCount(pageCount)
                 .sentenceCount(units.size())
@@ -67,6 +95,7 @@ public class DocumentStructureAnalysisService {
                 .mathCount(mathTotal)
                 .imageCount(imageTotal)
                 .pages(pages)
+                .complexity(complexity)
                 .build();
     }
 }

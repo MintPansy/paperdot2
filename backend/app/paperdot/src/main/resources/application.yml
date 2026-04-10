@@ -91,6 +91,11 @@ translation:
 paperdot:
   frontend:
     base-url: ${FRONTEND_BASE_URL}
+  # 문서 복잡도 점수 v1: score = weight-math * mathCount + weight-image * imageCount + weight-length * avgParagraphLength(문자)
+  complexity:
+    weight-math: 4.0
+    weight-image: 2.0
+    weight-length: 0.015
   jwt:
     secret: ${JWT_SECRET}
     access-ttl-seconds: 3600

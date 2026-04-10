@@ -149,6 +149,15 @@ export interface PageStructureStats {
   imageCount: number;
 }
 
+/** 복잡도 점수 v1 (structure-analysis 응답에 포함) */
+export interface DocumentComplexityScore {
+  score: number;
+  averageParagraphLength: number;
+  mathContribution: number;
+  imageContribution: number;
+  lengthContribution: number;
+}
+
 export interface DocumentStructureAnalysis {
   pageCount: number;
   sentenceCount: number;
@@ -156,6 +165,7 @@ export interface DocumentStructureAnalysis {
   mathCount: number;
   imageCount: number;
   pages: PageStructureStats[];
+  complexity: DocumentComplexityScore;
 }
 
 /**

@@ -21,4 +21,6 @@ public class DocumentStructureAnalysisResponse {
     private long mathCount;
     private int imageCount;
     private List<PageStructureStats> pages;
+    /** 복잡도 점수 v1 (구조 지표 기반 가중 합) */
+    private DocumentComplexityScore complexity;
 }
