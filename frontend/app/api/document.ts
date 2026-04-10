@@ -140,6 +140,24 @@ export interface TranslatedDocumentUnit {
   sourcePage?: number;
 }
 
+/** GET /api/v1/documents/{id}/structure-analysis */
+export interface PageStructureStats {
+  pageNumber: number;
+  sentenceCount: number;
+  paragraphCount: number;
+  mathCount: number;
+  imageCount: number;
+}
+
+export interface DocumentStructureAnalysis {
+  pageCount: number;
+  sentenceCount: number;
+  paragraphCount: number;
+  mathCount: number;
+  imageCount: number;
+  pages: PageStructureStats[];
+}
+
 /**
  * 문서 상세 정보
  */
@@ -225,6 +243,21 @@ export async function getTranslatedDocumentUnits(
   );
 
   return handleResponse<TranslatedDocumentUnit[]>(response);
+}
+
+export async function getDocumentStructureAnalysis(
+  documentId: number | string,
+  accessToken?: string
+): Promise<DocumentStructureAnalysis> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/documents/${documentId}/structure-analysis`,
+    {
+      method: "GET",
+      headers: getAuthHeaders(accessToken),
+      credentials: "include",
+    }
+  );
+  return handleResponse<DocumentStructureAnalysis>(response);
 }
 
 export async function processDocument(

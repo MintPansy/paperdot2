@@ -12,9 +12,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import swyp.paperdot.common.JwtAuthFilter;
+import swyp.paperdot.document.dto.DocumentStructureAnalysisResponse;
 import swyp.paperdot.document.service.DocumentHistoryService;
 import swyp.paperdot.document.service.DocumentPipelineService;
 import swyp.paperdot.document.service.DocumentService;
+import swyp.paperdot.document.service.DocumentStructureAnalysisService;
 
 import java.util.Map;
 
@@ -28,6 +30,7 @@ public class DocumentPipelineController {
     private final DocumentPipelineService documentPipelineService;
     private final DocumentHistoryService documentHistoryService;
     private final DocumentService documentService;
+    private final DocumentStructureAnalysisService documentStructureAnalysisService;
 
     @Operation(summary = "문서 처리 파이프라인 실행", description = "특정 문서 ID에 대해 텍스트 추출, 번역, 저장 파이프라인을 비동기로 실행합니다.")
     @ApiResponses(value = {
@@ -71,6 +74,17 @@ public class DocumentPipelineController {
             @Parameter(description = "진행률을 조회할 문서 ID", required = true) @PathVariable Long documentId
     ) {
         return ResponseEntity.ok(documentPipelineService.getTranslationProgress(documentId));
+    }
+
+    @Operation(
+            summary = "문서 구조 분석",
+            description = "PDF 페이지 수·문단·이미지(페이지별)와 doc_unit 기준 문장·수식(KaTeX 구분 규칙) 집계를 반환합니다."
+    )
+    @GetMapping("/{documentId}/structure-analysis")
+    public ResponseEntity<DocumentStructureAnalysisResponse> getStructureAnalysis(
+            @Parameter(description = "문서 ID", required = true) @PathVariable Long documentId
+    ) {
+        return ResponseEntity.ok(documentStructureAnalysisService.analyze(documentId));
     }
 
     @Operation(summary = "문서 삭제", description = "문서와 관련된 모든 데이터(번역, 메모, 파일)를 삭제합니다.")
