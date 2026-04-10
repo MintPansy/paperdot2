@@ -851,3 +851,56 @@
   - 오늘은 "완성"보다 "측정 가능한 뼈대 확보"를 목표로 두었고, 다음 작업에서 점수 계산식과 요약 UI를 연결해 즉시 시각화 가능한 상태까지 끌어올릴 예정이다.
 
 > 본 작업은 수식 렌더링 이슈와 병행 시 발생할 수 있는 일정 리스크를 줄이고 정량 분석 기능의 가시적 성과를 빠르게 확보하기 위한 것으로, 구조 지표의 범위·스키마를 먼저 고정함으로써 이후 점수화·UI 확장 단계를 안정적으로 진행할 수 있는 기반을 마련하는 효과를 얻었다.
+
+---
+
+### 2026-04-10 (오후 — 정량 분석 기능 완성 + 코드 정리 + 수식 렌더링 버그 수정)
+
+- **완료한 구현 항목**
+
+  - **문서 구조 분석 v1 (BE)**: `DocumentStructureAnalysisService` + `DocumentStructureAnalysisResponse` / `PageStructureStats` DTO 구현.  
+    - `GET /api/v1/documents/{id}/structure-analysis` 엔드포인트 추가.  
+    - PDF 1회 로드로 페이지별 문단(빈 줄 2회 이상 기준)·이미지(PDImageXObject) 집계 (`PdfTextExtractService.extractPageLayout`).  
+    - doc_unit DB 조회로 문장 수 및 KaTeX 규칙과 동일한 `MathExpressionCounter`로 수식 구간 수 집계.
+
+  - **복잡도 점수 v1 (BE)**: `ComplexityScoreCalculator` 순수 유틸리티 + `DocumentComplexityScore` DTO.  
+    - 공식: `score = weightMath × mathCount + weightImage × imageCount + weightLength × avgParagraphLength`  
+    - 가중치(`4.0`, `2.0`, `0.015`)는 `application.yml`에서 `@Value`로 주입, 환경별 오버라이드 가능.  
+    - 항목별 기여도(`mathContribution`, `imageContribution`, `lengthContribution`) 분리 노출 → 점수 근거 추적 가능.
+
+  - **문서 분석 요약 UI (FE)**: `DocumentAnalysisSummary` 컴포넌트(카드형 지표 + 복잡도 카드 + 페이지별 분포 테이블).  
+    - `translationReady` 완료 시점에 자동 호출, `cancelled` 플래그로 race condition 방지.  
+    - 로딩/에러/null 3단계 상태 분기, 접근성(`aria-busy`, `role="status"`, `scope="col"`) 적용.  
+    - 페이지 수 많은 문서용 `max-height: 220px` + sticky `thead` 스크롤 테이블.  
+    - 모바일 반응형(`@media max-width: 640px`) 처리.
+
+  - **프론트 API 단일 소스 정리**: `@/app/api/document` → `export * from "@/app/services/document"` 재export로 축소.  
+    - 타입·함수 구현 전체를 `services/document.ts`로 통합, import 경로 4개 파일 일괄 수정.  
+    - `tsc --noEmit` 통과 확인.
+
+  - **수식 렌더링 버그 수정** (`MixedTextWithMath.tsx`):  
+    - `isolateMathAsBlocks` 내 `$...$` 치환 정규식 수정: `/\$(?!\$)([^$\n]+?)\$/g` → `/\$(?!\$)([^$\n]+?)\$(?!\$)/g`.  
+    - **원인**: 닫는 `$`에 lookahead가 없어, `$$...$$` 블록의 두 번째 `$`가 단일달러 시작으로 오인됨. docUnitId 3(`$$S_{K,\infty}...$$`)에서 KaTeX 출력 앞에 stray `$` 글자가 붙는 증상.  
+    - 수정 후: `$$...$$`는 step 1(단일달러 치환)을 완전히 건너뛰고 step 2(`$$...$$` 분리)에서만 처리됨.
+
+  - **sample_test.pdf mock 데이터 정비** (`mockTranslationData.ts`):  
+    - docUnitId 34-36의 `[03page regression]` 깨진 PDF 추출 텍스트를 제거.  
+    - 스펙트럼 형태인자 $K(\beta,t)$, 시간전개 기댓값 `$$\langle O(t)\rangle...$$`, ETH 가설 등 올바른 LaTeX 수식으로 교체.  
+    - 로그인 없이 접근 가능한 데모 화면에서 수식 렌더링 정상 동작 확인 환경 확보.
+
+- **체크리스트 진행 상태 (4/10 오후 기준)**
+  - [x] 문서 구조 분석 v1 구현 (페이지 수, 문단 수, 수식 수, 이미지 수 집계)
+  - [x] 페이지별 분포 계산 로직 추가
+  - [x] 복잡도 점수 v1 공식 적용 (수식·이미지 가중치 + 문단 평균 길이)
+  - [x] 분석 결과 타입/인터페이스 정리 (FE 공통 스키마)
+  - [x] 문서 분석 요약 UI 추가 (카드형 지표 + 핵심 수치)
+  - [x] 프론트 API 모듈 단일 소스 통합
+  - [x] `$$...$$` 렌더링 버그 수정 (단일달러 정규식 lookahead 추가)
+  - [x] sample_test.pdf mock 수식 데이터 정비
+  - [ ] mock 데이터 기반 값 검증 및 보정
+  - [ ] `docs/THESIS_EXPERIMENTS.md` 측정 항목 연결
+
+- **메모**
+  - 복잡도 점수는 정규화 없는 raw 가중합이므로 논문 평가 챕터에서 "상대 순위 비교" 용도임을 명시할 것.
+  - `getDocumentStructureAnalysis`만 `Error` 사용, 나머지 함수는 `ApiError` 사용 — 다음 기회에 `handleDocumentResponse`로 통일 예정.
+  - 복잡도 점수 가중치 상수(`4.0`, `2.0`, `0.015`)는 임시값이므로 실제 논문 데이터 기반 튜닝 필요.
