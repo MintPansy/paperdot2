@@ -35,7 +35,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isMypage =
     pathname === "/mypage/mydocument" || pathname === "/mypage/account";
 
-  const showHeaderFooter = pathname === "/" || isMypage;
+  const showLegalPage = pathname === "/terms" || pathname === "/privacy";
+  const showHeaderFooter = pathname === "/" || isMypage || showLegalPage;
   const showHeaderOnly = pathname === "/newdocument";
 
   let main: React.ReactNode;

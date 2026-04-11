@@ -104,19 +104,11 @@ export default function LoginPage() {
             (로그인 없이 일부 기능을 체험할 수 있습니다.)
           </p>
 
-          <Link
-            href="https://www.notion.so/ScholarDot-32d844e3f94680faa215c1bcae9c889b?source=copy_link"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.termsLinkText}>
+          <Link href="/terms" className={styles.termsLinkText}>
             이용약관
           </Link>
 
-          <Link
-            href="https://www.notion.so/ScholarDot-32d844e3f946802eb7b5dd734df178f6?source=copy_link"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.termsLinkText}>
+          <Link href="/privacy" className={styles.termsLinkText}>
             개인정보처리방침
           </Link>
         </div>

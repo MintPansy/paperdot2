@@ -985,3 +985,16 @@
 > 본 작업은 문서 구조 분석 API·복잡도 점수·분석 요약 UI·API 모듈 단일화·KaTeX 단일달러 버그 수정을 한 번에 마무리하기 위한 것으로, 「## 핵심 기능」에 대응하는 정량 근거와 시연 가능한 UI를 동시에 갖추는 효과를 얻었다.
 
 > 결과: 구조 분석·복잡도 점수·번역·수식 렌더링을 연결한 논문 「구현·평가」용 정량·시각 근거 확보.
+
+---
+
+### 2026-04-11 (프론트 — 이용약관·개인정보 처리방침 내부 페이지)
+
+- **목적**: 외부 Notion 링크 대신 ScholarDot 사이트 내에서 약관·개인정보 문서를 읽을 수 있도록 함.
+- **라우트**: `frontend/app/terms/page.tsx` (`/terms`), `frontend/app/privacy/page.tsx` (`/privacy`).
+- **본문 데이터**: `frontend/app/content/terms.ts`, `frontend/app/content/privacy.ts` — `LegalBlock`(제목·문단·순서/비순서 목록) 배열로 유지보수. 타입은 `frontend/app/content/legalTypes.ts`.
+- **UI**: `frontend/app/components/legal/LegalDocument.tsx` + `LegalDocument.module.css` — 카드형·`max-width` 제한·랜딩 톤과 맞춘 타이포. `inlineBold.tsx`로 본문 `**강조**` 표기 지원.
+- **레이아웃**: `Layout.tsx`에서 `/terms`, `/privacy` 접근 시에도 헤더·푸터 표시.
+- **링크 정리**: `Footer.tsx`, `login/page.tsx`의 Notion URL을 `/terms`, `/privacy`로 교체.
+
+> 논문 「구현·운영」 보완: 서비스 정책 문서를 제품 UI 안에 통합해 외부 의존을 줄이고, 배포 환경에서도 동일한 경로로 안내 가능.
