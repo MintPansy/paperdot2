@@ -18,7 +18,7 @@
   font-family: "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
 }
 
-/* ===== PaperDot 학술 테마 (Navy + Cream + Gray) ===== */
+/* ===== ScholarDot 학술 테마 (Navy + Cream + Gray) ===== */
 :root {
   --pd-navy: #1e3a8a;
   --pd-navy-light: #2563eb;

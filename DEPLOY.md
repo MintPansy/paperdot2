@@ -1,49 +1,75 @@
-# 새 Vercel 배포 (검색·하이라이트 / 메모·하이라이트 포함)
+# ScholarDot Deployment Guide
 
-검색·하이라이트와 메모·하이라이트 저장 기능이 포함된 프론트엔드를 **새 Vercel 프로젝트**로 배포할 때 참고용입니다. 기존 배포(예: fe-paper-dot.vercel.app)는 그대로 두고, 새 URL로 서비스를 띄울 수 있습니다.
+ScholarDot은 `frontend`(Vercel) + `backend`(Railway) + `PostgreSQL` 조합으로 운영합니다. 이 문서는 새 도메인으로 재배포할 때 로그인/OAuth/CORS 오류 없이 빠르게 배포를 완료하기 위한 체크리스트입니다.
 
----
+## Deployment Scope
 
-## 1. Vercel에서 새 프로젝트 생성
+- Frontend: Vercel (`frontend` 루트)
+- Backend API: Railway (`backend/docker/Dockerfile`)
+- Database: Railway PostgreSQL
+- OAuth Provider: Kakao
 
-1. [Vercel](https://vercel.com) 로그인 후 **Add New** → **Project**
-2. 이 저장소(paperdot2) 연결 후 **Root Directory**를 `frontend`로 지정
-3. Framework Preset: **Next.js** 그대로 사용
-4. **Deploy**로 먼저 한 번 배포해도 되고, 아래 환경 변수 설정 후 재배포해도 됩니다.
+## 1) Frontend 배포 (Vercel)
 
----
+1. [Vercel](https://vercel.com)에서 새 프로젝트 생성
+2. 저장소 연결 후 Root Directory를 `frontend`로 지정
+3. Framework Preset은 Next.js 기본값 사용
+4. 아래 환경 변수를 먼저 등록한 뒤 배포
 
-## 2. 환경 변수 설정 (Vercel Dashboard)
+### Frontend Environment Variables
 
-프로젝트 → **Settings** → **Environment Variables**에서 아래를 추가합니다.
+| Key | Value | Note |
+|-----|-------|------|
+| `NEXT_PUBLIC_API_URL` | 백엔드 API URL | 예: `https://scholardot-production.up.railway.app` |
+| `NEXT_PUBLIC_BASE_URL` | 현재 프론트 배포 URL | 예: `https://scholardot-v2.vercel.app` |
+| `NEXT_PUBLIC_KAKAO_REDIRECT_URI` | `{NEXT_PUBLIC_BASE_URL}/api/auth/kakao` | 카카오 콘솔과 동일해야 함 |
 
-| 이름 | 값 | 비고 |
-|------|-----|------|
-| `NEXT_PUBLIC_API_URL` | 백엔드 API 주소 | 예: `https://be-paper-dot.store` 또는 새 백엔드 URL |
-| `NEXT_PUBLIC_BASE_URL` | **이번에 배포하는 프론트 URL** | 예: `https://paperdot-v2.vercel.app` |
-| `NEXT_PUBLIC_KAKAO_REDIRECT_URI` | `{NEXT_PUBLIC_BASE_URL}/api/auth/kakao` | 카카오 개발자 콘솔에도 동일 URL 등록 |
+## 2) Backend 연동 확인 (Railway)
 
-- 새 도메인을 쓰면 **반드시** Kakao OAuth 설정에서 **Redirect URI**에 새 프론트 URL을 추가해야 로그인이 동작합니다.
-- 백엔드를 새로 띄우는 경우, 백엔드 설정의 `paperdot.frontend.base-url`(또는 CORS 허용 origin)에 위 `NEXT_PUBLIC_BASE_URL`을 넣어야 합니다.
+프론트 URL이 바뀌면 백엔드도 새 도메인을 신뢰하도록 업데이트해야 합니다.
 
----
+- `FRONTEND_BASE_URL`: 새 Vercel 도메인으로 변경
+- CORS 허용 origin: 새 프론트 도메인 반영
+- 배포 후 `/users/me`, `/documents` 호출로 CORS/인증 동작 점검
 
-## 3. 백엔드 측 (새 프론트 URL 사용 시)
+## 3) Kakao OAuth 설정
 
-- **CORS**: Spring 설정에서 `paperdot.frontend.base-url`에 새 Vercel URL(예: `https://paperdot-v2.vercel.app`)을 넣어주세요.
-- **OAuth Redirect**: Kakao 로그인 후 리다이렉트할 URL이 새 프론트 주소로 가도록, 백엔드/프론트 env가 위와 맞는지 확인하세요.
+새 프론트 도메인 배포 시 가장 자주 깨지는 지점입니다.
 
----
+- Kakao Developer Console의 Redirect URI를 새 URL 기준으로 추가/수정
+- Frontend `NEXT_PUBLIC_KAKAO_REDIRECT_URI`와 정확히 일치해야 함
+- Backend OAuth 경로(`.../login/oauth2/code/kakao`)도 현재 배포 도메인 기준으로 확인
 
-## 4. 포함된 기능 요약
+## 4) Final Verification Checklist
 
-- **검색 + 하이라이트**: 읽기 화면 상단 검색창에 키워드 입력 시 번역문/원문에서 검색어가 하이라이트됩니다.
-- **메모·하이라이트 저장**: 문단 텍스트 선택 후 팝오버에서 **하이라이트** / **메모** 버튼으로 저장하면, 백엔드에 저장되고 다시 읽기 화면에 들어왔을 때 문단 옆에 표시됩니다.
-- **API URL 통일**: 모든 백엔드 호출이 `NEXT_PUBLIC_API_URL` 한 곳으로만 나가므로, 배포별로 이 값만 바꾸면 됩니다.
+- [ ] 홈 접속 및 로그인 버튼 동작
+- [ ] Kakao 로그인 후 서비스 복귀
+- [ ] PDF 업로드(`POST /documents`) 성공
+- [ ] 번역 진행률 폴링 동작
+- [ ] `/read` 화면 원문/번역 병렬 표시
+- [ ] 하이라이트/메모 저장 후 재접속 복원
+- [ ] 문서함 PDF 보기(인증 포함 blob URL 렌더링) 정상 동작
 
----
+## 5) Common Failure Cases
 
-## 5. 로컬에서 새 배포와 동일하게 쓰고 싶을 때
+### 로그인 후 다시 로그인 화면으로 튕김
 
-`frontend/.env.local`에 위와 같은 키를 두고,  
-`NEXT_PUBLIC_BASE_URL`만 로컬 주소(예: `http://localhost:3000`)로 두면 로컬에서도 동일하게 테스트할 수 있습니다.
+- `NEXT_PUBLIC_KAKAO_REDIRECT_URI`와 Kakao 콘솔 등록 값 불일치 가능성이 큽니다.
+
+### API 호출은 되는데 브라우저에서 CORS 오류 발생
+
+- Railway의 `FRONTEND_BASE_URL` 또는 CORS 허용 도메인이 새 프론트 URL과 다릅니다.
+
+### 문서함 PDF가 표시되지 않음
+
+- 토큰 없는 iframe URL 직접 접근 여부를 확인하세요. 인증 포함 `fetch -> blob URL` 경로를 사용해야 합니다.
+
+## 6) Local Parity (로컬-운영 동일성)
+
+운영 환경과 동일하게 확인하려면 `frontend/.env.local`에 같은 키를 두고 URL만 로컬로 맞춥니다.
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_KAKAO_REDIRECT_URI=http://localhost:3000/api/auth/kakao
+```

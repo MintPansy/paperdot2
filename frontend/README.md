@@ -1,207 +1,121 @@
-# ScholarDot — Frontend
+# ScholarDot Frontend
 
-**Next.js 기반 영어 논문 한·영 병렬 읽기 웹 서비스 프론트엔드입니다.**
+영어 학술 논문 PDF를 업로드하고 번역 진행률을 확인한 뒤, 원문과 번역문을 문장 단위로 병렬 읽기할 수 있게 제공하는 ScholarDot의 프론트엔드입니다. 읽기-메모-복습 흐름을 한 화면에서 유지하도록 사용자 경험을 설계했습니다.
 
-- **배포**: [https://scholardot.vercel.app](https://scholardot.vercel.app)
-- **백엔드 저장소**: [backend](../backend/README.md)
+- Live: [https://scholardot.vercel.app](https://scholardot.vercel.app)
+- Backend Guide: [../backend/README.md](../backend/README.md)
 
----
+## Problem
 
-## 목차
+논문 읽기 과정에서 번역, 메모, 하이라이트, 복습이 여러 도구로 분리되면 집중이 끊깁니다. 프론트엔드는 이 분절을 줄이고 문장 단위 문맥을 유지하는 읽기 경험 제공에 집중했습니다.
 
-- [기술 스택](#기술-스택)
-- [디렉토리 구조](#디렉토리-구조)
-- [주요 구현 내용](#주요-구현-내용)
-- [실행 방법](#실행-방법)
-- [환경 변수](#환경-변수)
-- [트러블슈팅](#트러블슈팅)
+## Solution
 
----
+- 번역 파이프라인 상태를 폴링해 대기 경험을 가시화
+- 원문/번역 병렬 뷰와 PDF 썸네일 네비게이션 통합
+- 하이라이트/메모/복습 큐를 읽기 화면에 내장
+- 마지막 읽기 위치 복원으로 재진입 비용 최소화
 
-## 기술 스택
+## Key Features
 
-| 분류 | 기술 |
-|------|------|
-| 프레임워크 | Next.js 16 (App Router), React 19, TypeScript |
-| 상태 관리 | Zustand (`useLoginStore`, `useAccessTokenStore`, `useDocumentStore`) |
-| 스타일 | CSS Modules |
-| PDF 렌더링 | pdfjs-dist 4.10.38 |
-| 알림 | react-toastify |
-| 패키지 매니저 | npm, pnpm |
-| 배포 | Vercel |
+### 1) Upload & Translation Flow
 
----
+- `POST /documents` 업로드 후 `POST /api/v1/documents/{id}/process` 호출
+- 3초 폴링으로 번역 상태 확인, 완료 데이터 캐시(session/local storage) 저장
+- 인증 없는 업로드 차단, 토큰 기반 요청 유지
 
-## 디렉토리 구조
+### 2) Parallel Reading UI
+
+- 문장 단위 원문/번역문 동시 렌더링
+- PDF 페이지 썸네일 클릭 시 해당 페이지 첫 문장으로 이동
+- 스크롤 기반 현재 페이지 추적 및 사이드바 강조
+
+### 3) Highlight, Memo, Review Queue
+
+- 3색 하이라이트 토글 및 메모 작성
+- 로컬 저장 + API 저장으로 재접속/다기기 시나리오 대응
+- 복습 큐에서 하이라이트 문장을 페이지 순으로 빠르게 재확인
+
+### 4) Resume Reading
+
+- 페이지/스크롤 위치 자동 저장
+- 재진입 시 자동 복원 및 즉시 이어 읽기 지원
+
+## Architecture (Frontend)
+
+- **App Router 기반 라우팅**: `newdocument`, `read`, `mypage` 중심 화면 분리
+- **상태 관리**: Zustand로 로그인/토큰/문서 식별자 관리
+- **PDF 렌더링**: PDF.js 기반 썸네일/뷰어 연동
+- **API 계층**: `app/services`, `app/api`, `lib/api`로 호출 책임 분리
+
+## Tech Stack
+
+- Next.js 16 (App Router), React 19, TypeScript
+- Zustand
+- CSS Modules
+- pdfjs-dist
+- react-toastify
+- Vercel
+
+## Project Structure
 
 ```text
 frontend/
 ├── app/
-│   ├── page.tsx                  # 홈(랜딩) 화면
-│   ├── layout.tsx                # 전역 레이아웃, ToastContainer
-│   ├── login/                    # 로그인 페이지 (Kakao OAuth)
-│   ├── newdocument/              # PDF 업로드 + 번역 진행 화면
-│   ├── read/                     # 읽기 화면 진입점
-│   ├── privacy/                  # 개인정보처리방침
-│   ├── terms/                    # 이용약관
-│   ├── mypage/
-│   │   ├── sidebar/              # 마이페이지 사이드바
-│   │   ├── mydocument/           # 내 문서함 (좌측 목록 + 우측 PDF 뷰어)
-│   │   └── account/              # 내 계정 (프로필, 로그아웃, 회원 탈퇴)
-│   ├── components/
-│   │   ├── read/
-│   │   │   ├── readList/         # ReadList.tsx — 읽기 화면 핵심 컴포넌트
-│   │   │   └── pdf/              # PdfPageThumbnail.tsx — 사이드바 썸네일
-│   │   ├── document/             # NewDocument.tsx — 업로드·폴링 로직
-│   │   ├── header/               # Header, ReadHeader, IsLogin
-│   │   ├── footer/               # Footer
-│   │   ├── modal/                # DeleteUserModal, HeaderModal
-│   │   └── layout/               # 홈 화면 섹션 컴포넌트들
-│   ├── api/
-│   │   └── document.ts           # 백엔드 API 함수 (문서, 노트 CRUD)
-│   ├── services/
-│   │   └── document.ts           # 업로드·번역·상태 폴링 서비스
-│   ├── store/
-│   │   └── useLogin.ts           # Zustand 스토어 (로그인, 토큰, 문서 ID)
-│   ├── config/
-│   │   └── env.ts                # getApiUrl() — 환경 변수 중앙 관리
-│   ├── hooks/                    # useClickOutSide 등 커스텀 훅
-│   ├── data/
-│   │   └── mockTranslationData.ts # 데모용 mock 번역 데이터 (32문장)
-├── lib/
-│   ├── api.ts                    # fetch 래퍼, 에러 처리
-│   ├── authSession.ts            # 로그인 세션 유틸
-│   └── localStorage.ts           # 읽기 진행률·하이라이트·메모 로컬 저장 유틸
-├── public/                       # 정적 파일 (이미지, favicon, PDF 데모 등)
+│   ├── newdocument/              # 업로드 + 번역 진행
+│   ├── read/                     # 병렬 읽기 화면
+│   ├── mypage/                   # 문서함 / 계정
+│   ├── components/               # 화면/기능별 UI 컴포넌트
+│   ├── services/                 # 업로드/번역/폴링 서비스
+│   ├── api/                      # 문서/노트 API 호출 모듈
+│   ├── store/                    # Zustand 스토어
+│   └── config/                   # 환경 변수 유틸
+├── lib/                          # fetch/auth/localStorage 유틸
+├── public/
 └── package.json
 ```
 
----
-
-## 주요 구현 내용
-
-### 1. PDF 업로드 및 번역 파이프라인 (`NewDocument.tsx`)
-
-- 드래그 앤 드롭 또는 파일 선택으로 PDF 업로드 (`POST /documents`)
-- 업로드 완료 후 번역 요청 (`POST /api/v1/documents/{id}/process`)
-- 3초 간격 폴링으로 번역 상태 확인, 완료 시 `translationPairs`를 sessionStorage + localStorage에 저장
-- 업로드한 PDF 원본을 Base64 Data URL로 sessionStorage에 보관 (읽기 화면 썸네일용)
-- `accessToken` 없으면 업로드 차단, `ownerId`는 JWT 서버 추출 방식으로 변경
-
----
-
-### 2. 문장 단위 한·영 병렬 읽기 (`ReadList.tsx`)
-
-- sessionStorage → localStorage 순으로 번역 데이터 로드, 없으면 mock 데이터 fallback
-- `sourcePage` 기반 PDF 모드 / 8문장 단위 레거시 모드 자동 분기
-- 사이드바: PDF 데이터가 있으면 실제 PDF 페이지 이미지 썸네일 표시 (`PdfPageThumbnail`)
-- 썸네일 클릭 → 해당 페이지 첫 문장으로 smooth scroll 이동
-- 더블클릭 → 원본 PDF 모달 뷰어 오픈 (iframe `#page=N`)
-- 스크롤 감지로 현재 페이지 자동 인식 및 사이드바 강조
-
----
-
-### 3. 형광펜·메모·복습 큐
-
-- **형광펜**: 파랑(`#93c5fd`) / 초록(`#4ade80`) / 분홍(`#f472b6`) 3색, 사이드바에서 색 사전 선택
-- 문장 클릭 → 하이라이트 토글, localStorage 즉시 반영 + `POST /notes` DB 영속화 이중 저장
-- 텍스트 선택 팝오버에서 하이라이트·메모 저장 가능
-- **메모**: 스타일드 모달(overlay + textarea), `Ctrl+Enter` 저장 / `Escape` 닫기
-- 메모 배지 hover → 말풍선 툴팁 표시
-- **복습 큐**: 하이라이트 항목을 페이지 순으로 정렬, 클릭 시 해당 문장으로 이동, 전체 삭제 지원
-
----
-
-### 4. 검색 이동
-
-- 사이드바 검색창에 키워드 입력, `Enter` → 다음 매치, `Shift+Enter` → 이전 매치 순환
-- 필터 모드: 전체 / 한국어(번역) / 영어(원문) 분리 검색
-- 현재 포커스 매치는 주황색(`highlightActive`), 나머지 매치는 노란색(`highlight`)으로 구분
-
----
-
-### 5. 이어 읽기
-
-- 스크롤 이벤트로 현재 페이지·스크롤 위치를 3초마다 localStorage 자동저장
-- 페이지 진입 시 저장된 위치 자동 복원
-- "마지막 위치 이어 읽기" 버튼으로 즉시 이동
-
----
-
-### 6. 내 문서함 (`mydocument/page.tsx`)
-
-- 좌측 사이드바에 문서 목록 표시, 클릭 시 우측에 PDF 즉시 표시
-- Bearer 토큰을 포함한 `fetch` → `res.blob()` → `URL.createObjectURL()` blob URL 방식으로 인증 문제 해결
-- `key={selectedDocumentId}` iframe 재마운트로 문서 전환 신뢰성 확보
-- 문서 삭제: hover 시 `×` 버튼 표시 → 확인 모달 → `DELETE /api/v1/documents/{id}`
-
----
-
-### 7. OAuth 인증 플로우
-
-- 로그인 버튼 클릭 → 백엔드 OAuth 엔드포인트로 이동 (`/oauth2/authorization/kakao` 등)
-- 콜백 후 `IsLogin` 컴포넌트가 `/auth/token` → `/users/me` 호출해 Zustand 스토어에 사용자 정보 저장
-- `useEffect`로 인증 리다이렉트 처리(SSR 중 `location` 참조 오류 방지)
-
----
-
-## 실행 방법
+## Getting Started
 
 ```bash
-# 의존성 설치
 npm install
-# 또는 pnpm install
-
-# 개발 서버
-npm run dev       # http://localhost:3000
-# 또는 pnpm dev
-
-# 프로덕션 빌드/실행
-npm run build
-npm run start
+npm run dev
+# http://localhost:3000
 ```
 
----
+또는:
 
-## 환경 변수
+```bash
+pnpm install
+pnpm dev
+```
 
-`.env.local` 파일을 생성하고 아래 변수를 설정합니다.
+## Environment Variables
+
+`.env.local`:
 
 ```env
-# 필수: 백엔드 API 주소
 NEXT_PUBLIC_API_URL=http://localhost:8080
-
-# 선택: 배포/소셜로그인 운영 시 사용하는 프론트 도메인
 NEXT_PUBLIC_BASE_URL=https://scholardot.vercel.app/
-
-# 선택: OAuth 콘솔에 등록한 redirect URI와 동일하게 설정
 NEXT_PUBLIC_KAKAO_REDIRECT_URI=https://scholardot.vercel.app/api/auth/kakao
-
 ```
 
-> 현재 코드에서 API 호출은 `NEXT_PUBLIC_API_URL`을 사용합니다.
-> 배포 시에는 이 값을 Railway 백엔드 도메인으로 변경하세요.
+## Technical Challenges (Frontend)
 
----
+### 1. SSR/CSR 경계에서 인증 리다이렉트 안정화
 
-## 트러블슈팅
+렌더 단계에서 브라우저 전역 객체를 참조하면 빌드 오류가 발생할 수 있습니다. 인증 리다이렉트 로직을 클라이언트 사이드 이펙트로 분리해 안정성을 확보했습니다.
 
-### SSR 중 `location is not defined` 빌드 오류
+### 2. 인증이 필요한 PDF 파일 렌더링
 
-- **원인**: `Layout.tsx` 렌더 단계에서 `router.push` 직접 호출 → SSR/SSG 중 브라우저 전역 참조
-- **해결**: 인증 리다이렉트 로직을 `useEffect` 내부로 이동, 중복 토스트는 ref로 제어
+iframe 직접 URL 방식으로는 Bearer 토큰 전달이 어렵습니다. 인증 포함 `fetch` 후 blob URL로 변환해 문서함 PDF 표시를 안정화했습니다.
 
-### PDF 썸네일 미표시
+### 3. 긴 읽기 세션 상태 동기화
 
-- **원인**: `showPdfThumbnails` 조건에 `pageLayout.kind === "pdf"` 포함 → 백엔드가 `sourcePage`를 미반환하면 항상 false
-- **해결**: 조건을 `Boolean(pdfDataUrl.current)`로 단순화, PDF 데이터가 있으면 항상 썸네일 표시
+하이라이트/메모/읽기 위치를 로컬과 서버 저장으로 분리해 즉시 반응성과 복원력을 함께 확보했습니다.
 
-### 내 문서함 PDF 미표시 (인증 오류)
+## Limitations & Future Work
 
-- **원인**: `<iframe src="http://backend/documents/1/file">` 방식은 Bearer 토큰 전송 불가
-- **해결**: `fetch`로 인증 포함 요청 후 blob URL 변환, iframe에 주입
-
-### `POST /documents` 302 리다이렉트
-
-- **원인**: Spring Security `formLogin()` 미비활성화, `ownerId` 미설정으로 폼 데이터 오류
-- **해결**: BE SecurityConfig 수정 + `accessToken` 없으면 업로드 차단, `ownerId` 서버 추출 방식으로 전환
+- 매우 긴 문서에서 초기 렌더링 최적화 여지 존재
+- 검색/복습 UI 접근성(키보드 내비게이션, 스크린리더) 고도화 필요
+- 향후 가상 스크롤, 성능 메트릭 수집, 모바일 읽기 UX 개선 예정
