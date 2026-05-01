@@ -5,6 +5,7 @@ import Footer from "../footer/Footer";
 import Header from "../header/Header";
 import AuthBootstrap from "@/app/components/auth/AuthBootstrap";
 import Sidebar from "@/app/mypage/sidebar/page";
+import mypageLayout from "@/app/mypage/mypageLayout.module.css";
 import { usePathname, useRouter } from "next/navigation";
 import { useLoginStore } from "@/app/store/useLogin";
 import { toast, ToastContainer } from "react-toastify";
@@ -63,9 +64,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <ToastContainer position="top-center" autoClose={4000} />
         {(showHeaderFooter || showHeaderOnly) && <Header />}
         {isMypage ? (
-          <div style={{ display: "flex", width: "100%", height: "100vh" }}>
+          <div className={mypageLayout.root}>
             <Sidebar />
-            {children}
+            <div className={mypageLayout.main}>{children}</div>
           </div>
         ) : (
           <>{children}</>

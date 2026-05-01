@@ -2,8 +2,10 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  padding: 28px 32px 32px 20px;
-  min-height: calc(100vh - 60px);
+  flex: 1;
+  box-sizing: border-box;
+  padding: 28px 32px 48px 20px;
+  min-height: 100%;
   gap: 14px;
   background: #f8fafc;
 }
@@ -13,7 +15,8 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  min-height: calc(100vh - 140px);
+  flex: 1;
+  padding-bottom: 8px;
 }
 
 .librarySectionTitle {
@@ -50,6 +53,51 @@
   .libraryGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+.libraryPagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 4px;
+}
+
+.libraryPaginationBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 76px;
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 160ms, border-color 160ms, color 160ms;
+}
+
+.libraryPaginationBtn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.libraryPaginationBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.libraryPaginationMeta {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+  min-width: 3.75rem;
+  text-align: center;
+  letter-spacing: 0.02em;
 }
 
 .continueHero {

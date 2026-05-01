@@ -17,10 +17,13 @@ import { useDocumentLibraryStore } from "@/app/store/useDocumentLibrary";
 import { getReadingProgress } from "@/lib/localStorage";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 
 const API_BASE_URL = getApiUrl();
+
+/** 문서 라이브러리 그리드: 이 개수 초과 시 하단 페이지 전환 표시 */
+const DOCUMENT_LIBRARY_PAGE_SIZE = 4;
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -116,6 +119,39 @@ export default function MyDocument() {
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [openingRead, setOpeningRead] = useState(false);
+  const [libraryPage, setLibraryPage] = useState(0);
+
+  const libraryPagesTotal = Math.max(
+    1,
+    Math.ceil(documents.length / DOCUMENT_LIBRARY_PAGE_SIZE)
+  );
+
+  useEffect(() => {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(documents.length / DOCUMENT_LIBRARY_PAGE_SIZE)
+    );
+    const maxIdx = Math.max(0, totalPages - 1);
+    setLibraryPage((p) => Math.min(p, maxIdx));
+  }, [documents.length]);
+
+  useEffect(() => {
+    setLibraryPage(0);
+  }, [userData?.userId]);
+
+  const showLibraryPagination = documents.length > DOCUMENT_LIBRARY_PAGE_SIZE;
+
+  const librarySlice = useMemo(() => {
+    if (documents.length <= DOCUMENT_LIBRARY_PAGE_SIZE) return documents;
+    const start = libraryPage * DOCUMENT_LIBRARY_PAGE_SIZE;
+    return documents.slice(start, start + DOCUMENT_LIBRARY_PAGE_SIZE);
+  }, [documents, libraryPage]);
+
+  const handleLibraryPrev = () =>
+    setLibraryPage((p) => Math.max(0, p - 1));
+
+  const handleLibraryNext = () =>
+    setLibraryPage((p) => Math.min(libraryPagesTotal - 1, p + 1));
 
   const handleOpenDocumentRead = async (doc: DocumentListItem) => {
     if (!accessToken) {
@@ -327,17 +363,20 @@ export default function MyDocument() {
               있고, 같은 동작을 카드에서 더블클릭으로도 열 수 있습니다.
             </p>
             <div className={styles.libraryGrid}>
-              {documents.map((doc, index) => {
+              {librarySlice.map((doc, index) => {
                 const progress = getReadingProgress(
                   doc.title,
                   String(doc.documentId)
                 );
+                const globalIndex = showLibraryPagination
+                  ? libraryPage * DOCUMENT_LIBRARY_PAGE_SIZE + index
+                  : index;
                 return (
                   <DocumentLibraryCard
                     key={doc.documentId}
                     doc={doc}
                     accessToken={accessToken}
-                    isRecentHighlight={index === 0}
+                    isRecentHighlight={globalIndex === 0}
                     progressPercent={readingProgressPercentForDoc(doc)}
                     readingUpdatedAt={progress?.updatedAt ?? 0}
                     openingRead={openingRead}
@@ -347,6 +386,32 @@ export default function MyDocument() {
                 );
               })}
             </div>
+
+            {showLibraryPagination && (
+              <nav
+                className={styles.libraryPagination}
+                aria-label="문서 라이브러리 페이지">
+                <button
+                  type="button"
+                  className={styles.libraryPaginationBtn}
+                  onClick={handleLibraryPrev}
+                  disabled={libraryPage <= 0}
+                  aria-disabled={libraryPage <= 0}>
+                  이전
+                </button>
+                <span className={styles.libraryPaginationMeta}>
+                  {libraryPage + 1} / {libraryPagesTotal}
+                </span>
+                <button
+                  type="button"
+                  className={styles.libraryPaginationBtn}
+                  onClick={handleLibraryNext}
+                  disabled={libraryPage >= libraryPagesTotal - 1}
+                  aria-disabled={libraryPage >= libraryPagesTotal - 1}>
+                  다음
+                </button>
+              </nav>
+            )}
           </div>
 
           <DocumentPdfModal accessToken={accessToken} />
