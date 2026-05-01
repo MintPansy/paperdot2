@@ -24,12 +24,32 @@ export const postDocuments = async (
       if (response.status === 401 || response.status === 403) {
         throw new Error("인증이 필요합니다. 로그인해주세요.");
       }
-      throw new Error("파일 업로드에 실패했습니다!");
+      let detail = "";
+      try {
+        const errBody = await response.json();
+        const msg =
+          errBody?.message ??
+          errBody?.error ??
+          (typeof errBody === "string" ? errBody : null);
+        if (msg && typeof msg === "string") detail = ` (${msg})`;
+      } catch {
+        /* ignore */
+      }
+      throw new Error(`파일 업로드에 실패했습니다.${detail}`);
     }
     const data = await response.json();
     return data;
   } catch (error) {
-    throw new Error((error as Error).message || "파일 업로드에 실패했습니다!");
+    const msg = (error as Error).message || "";
+    if (
+      msg === "Failed to fetch" ||
+      (error instanceof TypeError && msg.includes("fetch"))
+    ) {
+      throw new Error(
+        `서버에 연결할 수 없습니다. 백엔드가 실행 중인지, NEXT_PUBLIC_API_URL(${getApiUrl()}) 설정을 확인해 주세요.`
+      );
+    }
+    throw new Error(msg || "파일 업로드에 실패했습니다!");
   }
 };
 

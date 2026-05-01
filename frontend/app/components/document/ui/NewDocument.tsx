@@ -96,6 +96,7 @@ export default function NewDocumentPage() {
   const lastPartialPersistRef = useRef(0);
 
   const userInfo = useLoginStore((state) => state.userInfo);
+  const authHydrated = useLoginStore((state) => state.authHydrated);
   const accessToken = useAccessTokenStore((state) => state.accessToken);
   const router = useRouter();
 
@@ -198,8 +199,17 @@ export default function NewDocumentPage() {
     if (!currentFile) {
       return;
     }
-    // accessToken이 아직 로드되지 않은 경우 업로드 시도 안 함 (재시도는 accessToken 의존성으로 자동 트리거)
+    // 세션 복원 전에는 대기 — 복원 끝났는데도 토큰이 없으면 업로드가 영원히 멈춘 것처럼 보이므로 안내
     if (!accessToken) {
+      if (!authHydrated) return;
+      toast.error(
+        "로그인이 필요합니다. 로그인한 뒤 다시 파일을 선택해 업로드해 주세요."
+      );
+      setUploadingFiles((prev) =>
+        prev.map((file) =>
+          file.id === currentFile.id ? { ...file, status: "error" as const } : file
+        )
+      );
       return;
     }
 
@@ -207,8 +217,8 @@ export default function NewDocumentPage() {
       try {
         const formData = new FormData();
         formData.append("title", currentFile?.file?.name ?? "");
-        formData.append("languageSrc", "ko");
-        formData.append("languageTgt", "en");
+        formData.append("languageSrc", "en");
+        formData.append("languageTgt", "ko");
         formData.append("file", currentFile?.file);
 
         // 업로드 요청에도 accessToken을 붙여서, (보안 설정/매처 불일치가 있더라도) 인증 문제로 302/login 리다이렉트가 발생하지 않게 합니다.
@@ -254,7 +264,7 @@ export default function NewDocumentPage() {
     };
 
     uploadFile();
-  }, [uploadingFiles, accessToken, userInfo?.userId]);
+  }, [uploadingFiles, accessToken, userInfo?.userId, authHydrated]);
 
   // document 올라오면 번역 시작 → 폴링(getTranslation)만 사용. SSE 미사용이라 Content-Type 에러 없음
   useEffect(() => {

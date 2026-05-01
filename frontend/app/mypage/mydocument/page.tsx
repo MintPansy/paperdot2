@@ -139,8 +139,6 @@ export default function MyDocument() {
     setLibraryPage(0);
   }, [userData?.userId]);
 
-  const showLibraryPagination = documents.length > DOCUMENT_LIBRARY_PAGE_SIZE;
-
   const librarySlice = useMemo(() => {
     if (documents.length <= DOCUMENT_LIBRARY_PAGE_SIZE) return documents;
     const start = libraryPage * DOCUMENT_LIBRARY_PAGE_SIZE;
@@ -368,9 +366,8 @@ export default function MyDocument() {
                   doc.title,
                   String(doc.documentId)
                 );
-                const globalIndex = showLibraryPagination
-                  ? libraryPage * DOCUMENT_LIBRARY_PAGE_SIZE + index
-                  : index;
+                const globalIndex =
+                  libraryPage * DOCUMENT_LIBRARY_PAGE_SIZE + index;
                 return (
                   <DocumentLibraryCard
                     key={doc.documentId}
@@ -387,8 +384,7 @@ export default function MyDocument() {
               })}
             </div>
 
-            {showLibraryPagination && (
-              <nav
+            <nav
                 className={styles.libraryPagination}
                 aria-label="문서 라이브러리 페이지">
                 <button
@@ -411,7 +407,6 @@ export default function MyDocument() {
                   다음
                 </button>
               </nav>
-            )}
           </div>
 
           <DocumentPdfModal accessToken={accessToken} />
